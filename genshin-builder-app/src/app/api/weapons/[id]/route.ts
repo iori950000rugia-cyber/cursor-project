@@ -9,13 +9,18 @@
 
 import { NextResponse } from "next/server";
 import { fetchWeaponDetail } from "@/lib/api/amber-details";
+import { mergePromotesWithApiStats } from "@/lib/api/merge-promotes";
+import { getWeaponUpgrade } from "@/lib/repository/upgrade-data";
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const detail = await fetchWeaponDetail(id);
+  const [detail, upgrade] = await Promise.all([
+    fetchWeaponDetail(id),
+    getWeaponUpgrade(id),
+  ]);
 
   if (!detail) {
     return NextResponse.json(
@@ -23,5 +28,11 @@ export async function GET(
       { status: 404 },
     );
   }
-  return NextResponse.json(detail);
+  return NextResponse.json({
+    ...detail,
+    promotes: mergePromotesWithApiStats(
+      upgrade?.promotes ?? [],
+      detail.promotes ?? [],
+    ),
+  });
 }

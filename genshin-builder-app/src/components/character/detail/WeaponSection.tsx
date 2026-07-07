@@ -6,6 +6,7 @@ import {
   formatSubStatValue,
   type WeaponDetail,
 } from "@/lib/api/amber-details";
+import type { UpgradeDataCache } from "@/lib/repository/upgrade-data";
 import type { MaterialInfo } from "@/lib/repository/materials";
 import type { WeaponOption } from "@/lib/repository/weapons";
 import Accordion from "@/components/ui/Accordion";
@@ -26,6 +27,7 @@ export default function WeaponSection({
   weapons,
   weaponDetail,
   materialLookup,
+  upgradeCache,
   onWeaponChange,
   onChange,
 }: {
@@ -33,6 +35,7 @@ export default function WeaponSection({
   weapons: WeaponOption[];
   weaponDetail: WeaponDetail | null;
   materialLookup: MaterialInfo[];
+  upgradeCache: UpgradeDataCache;
   onWeaponChange: (weaponId: string) => void;
   onChange: (patch: Partial<ProgressPayload>) => void;
 }) {
@@ -135,6 +138,8 @@ export default function WeaponSection({
               promotes={weaponDetail?.promotes ?? []}
               materials={materialLookup}
               kind="weapon"
+              weaponRarity={weaponDetail?.rarity ?? selected?.rarity ?? 4}
+              upgradeCache={upgradeCache}
             />
           </div>
         )}

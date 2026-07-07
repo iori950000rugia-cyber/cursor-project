@@ -1,15 +1,17 @@
 /**
  * レベル・突破・必要素材の計算ロジック
+ * 突破・天賦・EXP素材は DB 同期データ（UpgradeDataCache）を優先する
  */
 
+import type { UpgradeDataCache } from "@/lib/repository/upgrade-data";
 import {
   CHARACTER_EXP_BETWEEN_MARKS,
   EXP_BOOKS,
   LEVEL_MARKS,
   LEVEL_MAX,
-  WEAPON_EXP_MULTIPLIER,
   type LevelMark,
 } from "./level-config";
+import { getWeaponExpBetweenMarks } from "./weapon-exp";
 
 /** 突破1段階分（API promote から正規化） */
 export interface PromoteStage {
@@ -31,15 +33,27 @@ export interface ExpBookSuggestion {
   count: number;
 }
 
+export interface EnhancementOreSuggestion {
+  materialId: string;
+  name: string;
+  count: number;
+}
+
+/** レベルアップ素材（キャラ=経験値書 / 武器=魔鉱） */
+export type LevelUpMaterialSuggestion =
+  | ExpBookSuggestion
+  | EnhancementOreSuggestion;
+
 /** 次の育成段階までに必要な素材 */
 export interface NextStageRequirements {
   fromLevel: number;
   toLevel: number;
-  /** 突破が必要か */
   needsAscension: boolean;
   materials: MaterialCost[];
   mora: number;
   expTotal: number;
+  levelUpMaterials: LevelUpMaterialSuggestion[];
+  /** @deprecated levelUpMaterials を使用 */
   expBooks: ExpBookSuggestion[];
 }
 
@@ -47,26 +61,22 @@ export interface NextStageRequirements {
 export interface AscensionStageInfo {
   level: number;
   promoteLevel: number;
-  /** この段階で突破が必要か（Lv.1 以外） */
   requiresAscension: boolean;
   materials: MaterialCost[];
   mora: number;
   requiredPlayerLevel?: number;
 }
 
-/** 整数を min〜max に収める */
 export function clampInt(value: unknown, min: number, max: number): number {
   const n = Math.round(Number(value));
   if (Number.isNaN(n)) return min;
   return Math.min(max, Math.max(min, n));
 }
 
-/** レベルを最寄りの目盛りにスナップする */
 export function snapToLevelMark(value: unknown): LevelMark {
   return snapToMarks(value, LEVEL_MARKS, LEVEL_MAX) as LevelMark;
 }
 
-/** 任意の目盛り配列にスナップする */
 export function snapToMarks(
   value: unknown,
   marks: readonly number[],
@@ -87,12 +97,10 @@ export function snapToMarks(
   return closest;
 }
 
-/** スライダー表示位置（0〜1）。LEVEL_DISPLAY_MAX 基準 */
 export function levelToVisualRatio(level: number, displayMax: number): number {
   return clampInt(level, 1, displayMax) / displayMax;
 }
 
-/** 次の目盛りレベルを返す（最大時は null） */
 export function getNextMilestone(level: number): number | null {
   const snapped = snapToLevelMark(level);
   const idx = LEVEL_MARKS.indexOf(snapped);
@@ -100,7 +108,6 @@ export function getNextMilestone(level: number): number | null {
   return LEVEL_MARKS[idx + 1];
 }
 
-/** レベルに必要な突破段階（promoteLevel）を返す */
 export function getRequiredPromoteLevel(
   level: number,
   promotes: PromoteStage[],
@@ -115,7 +122,6 @@ export function getRequiredPromoteLevel(
   return sorted.at(-1)?.promoteLevel ?? 0;
 }
 
-/** 素材リストをマージする */
 function mergeMaterials(
   target: Map<string, number>,
   items: Record<string, number>,
@@ -125,15 +131,48 @@ function mergeMaterials(
   }
 }
 
-/** 必要経験値を目盛り間で合算 */
+function resolveRarity(rarity: number): number {
+  if (rarity >= 5) return 5;
+  if (rarity === 4) return 4;
+  return 3;
+}
+
 function getExpBetweenMarks(
   from: number,
   to: number,
   kind: "character" | "weapon",
+  weaponRarity: number,
+  cache?: UpgradeDataCache,
 ): number {
   const fromMark = snapToLevelMark(from);
   const toMark = snapToLevelMark(to);
   if (toMark <= fromMark) return 0;
+
+  if (cache && cache.levelExpSegments.length > 0) {
+    const rarity = kind === "character" ? 0 : resolveRarity(weaponRarity);
+    let total = 0;
+    const startIdx = LEVEL_MARKS.indexOf(fromMark);
+    for (let i = startIdx; i < LEVEL_MARKS.length - 1; i++) {
+      const a = LEVEL_MARKS[i];
+      const b = LEVEL_MARKS[i + 1];
+      if (b <= fromMark) continue;
+      if (a >= toMark) break;
+      const seg = cache.levelExpSegments.find(
+        (s) =>
+          s.targetType === kind &&
+          s.rarity === rarity &&
+          s.fromLevel === a &&
+          s.toLevel === b,
+      );
+      total += seg?.expRequired ?? 0;
+      if (b >= toMark) break;
+    }
+    if (total > 0) return total;
+  }
+
+  if (kind === "weapon") {
+    return getWeaponExpBetweenMarks(fromMark, toMark, weaponRarity);
+  }
 
   let total = 0;
   const startIdx = LEVEL_MARKS.indexOf(fromMark);
@@ -142,43 +181,102 @@ function getExpBetweenMarks(
     const b = LEVEL_MARKS[i + 1];
     if (b <= fromMark) continue;
     if (a >= toMark) break;
-    const key = `${a}-${b}`;
-    const exp = CHARACTER_EXP_BETWEEN_MARKS[key] ?? 0;
-    total += kind === "weapon" ? Math.round(exp * WEAPON_EXP_MULTIPLIER) : exp;
+    total += CHARACTER_EXP_BETWEEN_MARKS[`${a}-${b}`] ?? 0;
     if (b >= toMark) break;
   }
   return total;
 }
 
-/** 経験値書のおすすめ内訳（大→小の貪欲法） */
-export function suggestExpBooks(totalExp: number): ExpBookSuggestion[] {
-  if (totalExp <= 0) return [];
-  let remaining = totalExp;
-  const result: ExpBookSuggestion[] = [];
+interface LevelUpItem {
+  materialId: string;
+  name: string;
+  exp: number;
+}
 
-  for (const book of EXP_BOOKS) {
-    const count = Math.floor(remaining / book.exp);
+function getLevelUpItems(
+  kind: "character" | "weapon",
+  cache?: UpgradeDataCache,
+): LevelUpItem[] {
+  const fromCache = (cache?.levelUpMaterials ?? [])
+    .filter((m) => m.targetType === kind)
+    .map((m) => ({
+      materialId: m.materialId,
+      name: m.name,
+      exp: m.exp,
+    }))
+    .sort((a, b) => b.exp - a.exp);
+
+  if (fromCache.length > 0) return fromCache;
+
+  if (kind === "weapon") {
+    return [
+      { materialId: "104013", name: "仕上げ用魔鉱", exp: 10_000 },
+      { materialId: "104012", name: "仕上げ用良鉱", exp: 2_000 },
+      { materialId: "104011", name: "仕上げ用雑鉱", exp: 400 },
+    ];
+  }
+
+  return EXP_BOOKS.map((b) => ({
+    materialId: b.id,
+    name: b.name,
+    exp: b.exp,
+  }));
+}
+
+export function suggestLevelUpMaterials(
+  totalExp: number,
+  kind: "character" | "weapon",
+  cache?: UpgradeDataCache,
+): LevelUpMaterialSuggestion[] {
+  if (totalExp <= 0) return [];
+
+  const items = getLevelUpItems(kind, cache);
+  let remaining = totalExp;
+  const result: LevelUpMaterialSuggestion[] = [];
+
+  for (const item of items) {
+    const count = Math.floor(remaining / item.exp);
     if (count > 0) {
-      result.push({ materialId: book.id, name: book.name, count });
-      remaining -= count * book.exp;
+      result.push({
+        materialId: item.materialId,
+        name: item.name,
+        count,
+      });
+      remaining -= count * item.exp;
     }
   }
+
   if (remaining > 0) {
-    const wanderer = EXP_BOOKS[2];
-    result.push({
-      materialId: wanderer.id,
-      name: wanderer.name,
-      count: Math.ceil(remaining / wanderer.exp),
-    });
+    const smallest = items.at(-1);
+    if (smallest) {
+      const extra = Math.ceil(remaining / smallest.exp);
+      const existing = result.find((r) => r.materialId === smallest.materialId);
+      if (existing) {
+        existing.count += extra;
+      } else {
+        result.push({
+          materialId: smallest.materialId,
+          name: smallest.name,
+          count: extra,
+        });
+      }
+    }
   }
+
   return result;
 }
 
-/** 次の育成段階までに必要な素材を計算 */
+/** @deprecated suggestLevelUpMaterials を使用 */
+export function suggestExpBooks(totalExp: number): ExpBookSuggestion[] {
+  return suggestLevelUpMaterials(totalExp, "character") as ExpBookSuggestion[];
+}
+
 export function getNextStageRequirements(
   currentLevel: number,
   promotes: PromoteStage[],
   kind: "character" | "weapon",
+  weaponRarity = 5,
+  cache?: UpgradeDataCache,
 ): NextStageRequirements | null {
   const fromLevel = snapToLevelMark(currentLevel);
   const toLevel = getNextMilestone(fromLevel);
@@ -200,7 +298,15 @@ export function getNextStageRequirements(
     }
   }
 
-  const expTotal = getExpBetweenMarks(fromLevel, toLevel, kind);
+  const expTotal = getExpBetweenMarks(
+    fromLevel,
+    toLevel,
+    kind,
+    weaponRarity,
+    cache,
+  );
+  const levelUpMora = Math.round(expTotal / 10);
+  const levelUpMaterials = suggestLevelUpMaterials(expTotal, kind, cache);
 
   return {
     fromLevel,
@@ -210,13 +316,14 @@ export function getNextStageRequirements(
       materialId,
       count,
     })),
-    mora,
+    mora: mora + levelUpMora,
     expTotal,
-    expBooks: suggestExpBooks(expTotal),
+    levelUpMaterials,
+    expBooks:
+      kind === "character" ? (levelUpMaterials as ExpBookSuggestion[]) : [],
   };
 }
 
-/** 各突破段階の情報一覧 */
 export function getAscensionStageInfos(
   promotes: PromoteStage[],
 ): AscensionStageInfo[] {
@@ -236,7 +343,6 @@ export function getAscensionStageInfos(
     }));
 }
 
-/** レベル変更時に同期する突破段階 */
 export function getAscensionForLevel(
   level: number,
   promotes: PromoteStage[],

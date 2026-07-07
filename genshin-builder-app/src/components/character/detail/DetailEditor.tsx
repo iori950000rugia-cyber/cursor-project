@@ -19,7 +19,9 @@ import LevelSlider from "@/components/ui/LevelSlider";
 import { WEAPON_TYPE_INFO } from "@/lib/constants";
 import { getAscensionForLevel } from "@/lib/level-progression";
 import { snapWeaponLevel } from "@/lib/input-limits";
+import type { CharacterUpgradeData } from "@/lib/api/upgrade-types";
 import type { MaterialInfo } from "@/lib/repository/materials";
+import type { UpgradeDataCache } from "@/lib/repository/upgrade-data";
 import WeaponSection from "./WeaponSection";
 import ArtifactSection from "./ArtifactSection";
 import ConstellationSection from "./ConstellationSection";
@@ -75,6 +77,8 @@ export default function DetailEditor({
   initialWeaponDetail,
   scoreType,
   materialLookup,
+  characterUpgrade,
+  upgradeCache,
 }: {
   character: Character;
   initialProgress: CharacterProgress | null;
@@ -84,7 +88,13 @@ export default function DetailEditor({
   initialWeaponDetail: WeaponDetail | null;
   scoreType: ScoreType;
   materialLookup: MaterialInfo[];
+  characterUpgrade: CharacterUpgradeData | null;
+  upgradeCache: UpgradeDataCache;
 }) {
+  const characterPromotes = characterUpgrade?.promotes ?? [];
+  const talentUpgradesByKind = new Map(
+    (characterUpgrade?.talents ?? []).map((t) => [t.kind, t.upgrades]),
+  );
   const [progress, setProgress] = useState<ProgressPayload>(() =>
     toPayload(initialProgress),
   );
@@ -202,10 +212,9 @@ export default function DetailEditor({
             label="キャラクターレベル"
             value={progress.level}
             onChange={(level) => {
-              const promotes = avatarDetail?.stats?.promotes ?? [];
               update({
                 level,
-                ascension: getAscensionForLevel(level, promotes),
+                ascension: getAscensionForLevel(level, characterPromotes),
               });
             }}
           />
@@ -214,9 +223,10 @@ export default function DetailEditor({
           </p>
           <LevelMaterialsPanel
             currentLevel={progress.level}
-            promotes={avatarDetail?.stats?.promotes ?? []}
+            promotes={characterPromotes}
             materials={materialLookup}
             kind="character"
+            upgradeCache={upgradeCache}
           />
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -252,6 +262,7 @@ export default function DetailEditor({
         weapons={weapons}
         weaponDetail={weaponDetail}
         materialLookup={materialLookup}
+        upgradeCache={upgradeCache}
         onWeaponChange={handleWeaponChange}
         onChange={update}
       />
@@ -275,6 +286,7 @@ export default function DetailEditor({
       <TalentSection
         talents={progress.talents}
         talentInfos={avatarDetail?.talents ?? []}
+        talentUpgradesByKind={talentUpgradesByKind}
         materialLookup={materialLookup}
         constellation={progress.constellation}
         onChange={(talents) => update({ talents })}

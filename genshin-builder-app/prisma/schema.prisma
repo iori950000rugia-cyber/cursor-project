@@ -27,6 +27,7 @@ model Character {
   scoreType  String @default("atk") // 聖遺物スコア計算タイプ（atk / hp / def / em）
   syncedAt   DateTime @updatedAt // 最終同期日時
 
+  upgrade CharacterUpgrade?
   progresses UserProgress[]
 }
 
@@ -38,16 +39,56 @@ model Weapon {
   rarity     Int
   iconUrl    String
   syncedAt   DateTime @updatedAt
+
+  upgrade WeaponUpgrade?
 }
 
 /// 素材の基本情報
 model Material {
-  id       String   @id
-  name     String
-  category String // 種類（talent-book / boss-material / local-specialties など）
-  rarity   Int? // レアリティ（APIに存在する場合のみ）
-  iconUrl  String
+  id        String   @id
+  name      String
+  category  String // 種類（talent-book / boss-material / local-specialties など）
+  rarity    Int? // レアリティ（APIに存在する場合のみ）
+  iconUrl   String
+  expValue  Int? // 経験値（キャラ/武器強化素材。API material detail から取得）
+  expTarget String? // character / weapon（経験値素材の対象）
+  syncedAt  DateTime @updatedAt
+}
+
+/// キャラクター突破・天賦強化データ（API avatar detail から同期）
+model CharacterUpgrade {
+  characterId String    @id
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  /// JSON: PromoteStage[]（突破段階ごとの costItems / coinCost）
+  promotes    String
+  /// JSON: TalentUpgradeData[]（スキル種別ごとのレベル別 costItems）
+  talents     String
+  syncedAt    DateTime  @updatedAt
+}
+
+/// 武器突破データ（API weapon detail から同期）
+model WeaponUpgrade {
+  weaponId String @id
+  weapon   Weapon @relation(fields: [weaponId], references: [id], onDelete: Cascade)
+  /// JSON: PromoteStage[]
+  promotes String
+  /// JSON: string[]（レベルアップ用魔鉱などの material ID）
+  levelUpItemIds String @default("[]")
   syncedAt DateTime @updatedAt
+}
+
+/// 目盛り間の必要EXP（character=全キャラ共通 rarity0 / weapon=レアリティ別）
+model LevelExpSegment {
+  id          String @id // 例: character-0-1-20, weapon-5-40-50
+  targetType  String // character / weapon
+  rarity      Int    @default(0)
+  fromLevel   Int
+  toLevel     Int
+  expRequired Int
+  moraRequired Int
+  syncedAt    DateTime @updatedAt
+
+  @@unique([targetType, rarity, fromLevel, toLevel])
 }
 
 // ============================================================

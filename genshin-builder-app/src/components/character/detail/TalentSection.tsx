@@ -5,7 +5,10 @@ import type { TalentInfo } from "@/lib/api/amber-details";
 import type { ProgressPayload } from "@/lib/actions/progress";
 import { getTalentLevelMax } from "@/lib/input-limits";
 import type { MaterialInfo } from "@/lib/repository/materials";
-import { snapTalentLevel } from "@/lib/talent-progression";
+import {
+  snapTalentLevel,
+  type TalentLevelUpgrade,
+} from "@/lib/talent-progression";
 import Accordion from "@/components/ui/Accordion";
 import TalentLevelSlider from "@/components/ui/TalentLevelSlider";
 import TalentMaterialsPanel from "./TalentMaterialsPanel";
@@ -32,12 +35,17 @@ const ACTIVE_TALENTS: Array<{
 export default function TalentSection({
   talents,
   talentInfos,
+  talentUpgradesByKind,
   materialLookup,
   constellation = 0,
   onChange,
 }: {
   talents: Talents;
   talentInfos: TalentInfo[];
+  talentUpgradesByKind: Map<
+    "normal" | "skill" | "burst",
+    TalentLevelUpgrade[]
+  >;
   materialLookup: MaterialInfo[];
   constellation?: number;
   onChange: (talents: Talents) => void;
@@ -106,7 +114,9 @@ export default function TalentSection({
               <TalentMaterialsPanel
                 currentLevel={talents[key]}
                 maxLevel={talentMax}
-                upgrades={info?.upgrades ?? []}
+                upgrades={
+                  talentUpgradesByKind.get(kind) ?? info?.upgrades ?? []
+                }
                 materials={materialLookup}
               />
 

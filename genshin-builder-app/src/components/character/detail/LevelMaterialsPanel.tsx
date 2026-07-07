@@ -1,8 +1,10 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useMemo } from "react";
 import type { MaterialInfo } from "@/lib/repository/materials";
+import type { UpgradeDataCache } from "@/lib/repository/upgrade-data";
 import {
   getAscensionStageInfos,
   getNextStageRequirements,
@@ -54,11 +56,17 @@ export default function LevelMaterialsPanel({
   promotes,
   materials,
   kind,
+  weaponRarity = 5,
+  upgradeCache,
 }: {
   currentLevel: number;
   promotes: PromoteStage[];
   materials: MaterialInfo[];
   kind: "character" | "weapon";
+  /** 武器レベルアップEXP計算用（kind=weapon のとき） */
+  weaponRarity?: number;
+  /** DB同期済みのEXP・素材データ */
+  upgradeCache?: UpgradeDataCache;
 }) {
   const materialMap = useMemo(
     () => new Map(materials.map((m) => [m.id, m])),
@@ -66,8 +74,15 @@ export default function LevelMaterialsPanel({
   );
 
   const nextStage = useMemo(
-    () => getNextStageRequirements(currentLevel, promotes, kind),
-    [currentLevel, promotes, kind],
+    () =>
+      getNextStageRequirements(
+        currentLevel,
+        promotes,
+        kind,
+        weaponRarity,
+        upgradeCache,
+      ),
+    [currentLevel, promotes, kind, weaponRarity, upgradeCache],
   );
 
   const ascensionInfos = useMemo(
@@ -77,9 +92,15 @@ export default function LevelMaterialsPanel({
 
   if (promotes.length === 0) {
     return (
-      <p className="text-xs text-gray-500">
-        突破・素材データを取得できませんでした
-      </p>
+      <div className="rounded-lg bg-[#151d2a] px-3 py-2 text-xs text-amber-200/80">
+        <p>突破・素材データがありません。</p>
+        <p className="mt-1 text-gray-500">
+          <Link href="/settings" className="text-accent hover:underline">
+            設定
+          </Link>
+          で「ゲームデータを同期」を実行してください。
+        </p>
+      </div>
     );
   }
 
@@ -109,11 +130,11 @@ export default function LevelMaterialsPanel({
                 />
               );
             })}
-            {nextStage.expBooks.map(({ materialId, name, count }) => {
+            {nextStage.levelUpMaterials.map(({ materialId, name, count }) => {
               const mat = materialMap.get(materialId);
               return (
                 <MaterialRow
-                  key={`exp-${materialId}`}
+                  key={`levelup-${materialId}`}
                   materialId={materialId}
                   name={mat?.name ?? name}
                   iconUrl={mat?.iconUrl ?? null}
@@ -133,7 +154,7 @@ export default function LevelMaterialsPanel({
               </li>
             )}
             {nextStage.materials.length === 0 &&
-              nextStage.expBooks.length === 0 &&
+              nextStage.levelUpMaterials.length === 0 &&
               nextStage.mora === 0 && (
                 <li className="text-xs text-gray-500">追加素材は不要です</li>
               )}

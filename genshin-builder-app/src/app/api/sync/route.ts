@@ -2,19 +2,25 @@
  * マスターデータ同期API
  *
  * POST /api/sync で外部APIからDBへマスターデータを同期する。
- * 将来的に Vercel Cron から定期実行する場合もこのエンドポイントを使う
- * （その際は Authorization ヘッダーによる保護を追加する）。
+ * Body: { "fullUpgrade": false } — false=差分（既定）, true=突破データ全件再取得
  */
 
 import { NextResponse } from "next/server";
 import { syncMasterData } from "@/lib/sync";
 
-// 同期は数十秒かかることがあるため上限を延長（Vercelのプラン上限に依存）
-export const maxDuration = 60;
+export const maxDuration = 300;
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
-    const result = await syncMasterData();
+    let fullUpgrade = false;
+    try {
+      const body = (await request.json()) as { fullUpgrade?: boolean };
+      fullUpgrade = body.fullUpgrade === true;
+    } catch {
+      // body なしは差分同期
+    }
+
+    const result = await syncMasterData({ fullUpgrade });
     return NextResponse.json({ ok: result.errors.length === 0, ...result });
   } catch (error) {
     console.error("マスターデータ同期に失敗しました:", error);

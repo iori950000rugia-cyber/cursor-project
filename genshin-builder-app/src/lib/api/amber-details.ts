@@ -7,7 +7,9 @@
  * APIが落ちても null を返し、画面側は基本情報のみで動作を継続する。
  */
 
+import { cache } from "react";
 import { LEVEL_MARKS } from "@/lib/level-config";
+import { parseWeaponEnhancementOreIds } from "@/lib/weapon-exp";
 
 const BASE_URL = "https://gi.yatta.moe";
 const ASSET_URL = `${BASE_URL}/assets/UI`;
@@ -104,6 +106,8 @@ export interface WeaponDetail {
   levelStats: WeaponLevelStat[];
   /** 突破段階（素材計算用） */
   promotes: StatPromote[];
+  /** レベルアップ用魔鉱ID（API items から抽出） */
+  enhancementOreIds: string[];
 }
 
 export interface ArtifactSetInfo {
@@ -168,6 +172,7 @@ interface ApiWeaponDetail {
   icon: string;
   affix: Record<string, { name: string; upgrade: Record<string, string> }> | null;
   upgrade: ApiUpgrade;
+  items?: Record<string, { name?: string; icon?: string }>;
 }
 
 /** 成長曲線: レベル → 曲線名 → 倍率 */
@@ -198,6 +203,19 @@ async function fetchData<T>(path: string): Promise<T | null> {
     return null;
   }
 }
+
+/** 成長曲線は全キャラ/武器共通。リクエスト内で1回だけ取得する */
+const fetchAvatarCurveData = cache(() =>
+  fetchData<ApiCurveData>("/api/v2/static/avatarCurve"),
+);
+
+const fetchWeaponCurveData = cache(() =>
+  fetchData<ApiCurveData>("/api/v2/static/weaponCurve"),
+);
+
+const fetchArtifactSetsData = cache(() =>
+  fetchData<{ items: Record<string, ApiArtifactSet> }>("/api/v2/jp/reliquary"),
+);
 
 /** APIの説明文に含まれる <color=...> タグ等を除去して平文にする */
 export function stripMarkup(text: string): string {
@@ -352,7 +370,7 @@ export async function fetchAvatarDetail(
     }));
 
   // ステータス計算用データ（基礎値 + 成長曲線 + 突破加算）
-  const curveData = await fetchData<ApiCurveData>("/api/v2/static/avatarCurve");
+  const curveData = await fetchAvatarCurveData();
   const stats = buildStats(data.upgrade, curveData);
 
   return { talents, constellations, stats };
@@ -388,7 +406,7 @@ export async function fetchWeaponDetail(
     : [];
 
   // レベル（10刻み）ごとの実ステータスを成長曲線から計算する
-  const curveData = await fetchData<ApiCurveData>("/api/v2/static/weaponCurve");
+  const curveData = await fetchWeaponCurveData();
   const stats = buildStats(data.upgrade, curveData);
   const levelStats: WeaponLevelStat[] = LEVEL_MARKS.map((level) => {
     const atkProp = stats?.props.find(
@@ -430,6 +448,7 @@ export async function fetchWeaponDetail(
     effectDescriptions,
     levelStats,
     promotes: stats?.promotes ?? [],
+    enhancementOreIds: parseWeaponEnhancementOreIds(data.items),
   };
 }
 
@@ -446,9 +465,7 @@ export function formatSubStatValue(
 
 /** 聖遺物セットの一覧（セット効果付き）を取得する */
 export async function fetchArtifactSets(): Promise<ArtifactSetInfo[]> {
-  const data = await fetchData<{ items: Record<string, ApiArtifactSet> }>(
-    "/api/v2/jp/reliquary",
-  );
+  const data = await fetchArtifactSetsData();
   if (!data) return [];
 
   return Object.values(data.items)

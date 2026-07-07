@@ -45,6 +45,8 @@ export const CHARACTER_EXP_BETWEEN_MARKS: Record<string, number> = {
 /** 武器はキャラの約 1.5 倍（目安。将来マスターデータ化） */
 export const WEAPON_EXP_MULTIPLIER = 1.5;
 
+/** @deprecated 武器は weapon-exp.ts の魔鉱計算を使用 */
+
 /** 天賦レベル（スキル） */
 export const TALENT_LEVEL_MAX = 10;
 
