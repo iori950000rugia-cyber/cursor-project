@@ -7,9 +7,7 @@
  * APIが落ちても null を返し、画面側は基本情報のみで動作を継続する。
  */
 
-import { WEAPON_LEVEL_OPTIONS } from "@/lib/input-limits";
-
-export { WEAPON_LEVEL_OPTIONS };
+import { LEVEL_MARKS } from "@/lib/level-config";
 
 const BASE_URL = "https://gi.yatta.moe";
 const ASSET_URL = `${BASE_URL}/assets/UI`;
@@ -21,11 +19,19 @@ const REVALIDATE_SEC = 60 * 60 * 24;
 
 export type TalentKind = "normal" | "skill" | "burst" | "passive";
 
+export interface TalentLevelUpgrade {
+  level: number;
+  costItems: Record<string, number>;
+  coinCost: number;
+}
+
 export interface TalentInfo {
   kind: TalentKind;
   name: string;
   description: string;
   iconUrl: string | null;
+  /** レベル別強化データ（アクティブスキルのみ。Lv.2〜） */
+  upgrades: TalentLevelUpgrade[];
 }
 
 export interface ConstellationInfo {
@@ -44,12 +50,15 @@ export interface StatCurveProp {
   curveValues: number[];
 }
 
-/** 突破1段階分のステータス加算 */
+/** 突破1段階分のステータス加算・必要素材 */
 export interface StatPromote {
   promoteLevel: number;
   unlockMaxLevel: number;
   /** FIGHT_PROP_* → 加算値（%系は小数。例: 0.384 = 38.4%） */
   addProps: Record<string, number>;
+  costItems: Record<string, number>;
+  coinCost: number;
+  requiredPlayerLevel?: number;
 }
 
 /** キャラクターのステータス計算用データ */
@@ -93,6 +102,8 @@ export interface WeaponDetail {
   effectDescriptions: string[];
   /** レベル（10刻み）ごとの実ステータス */
   levelStats: WeaponLevelStat[];
+  /** 突破段階（素材計算用） */
+  promotes: StatPromote[];
 }
 
 export interface ArtifactSetInfo {
@@ -112,11 +123,18 @@ interface AmberResponse<T> {
   data: T;
 }
 
+interface ApiTalentPromote {
+  level?: number;
+  costItems?: Record<string, number> | null;
+  coinCost?: number | null;
+}
+
 interface ApiTalent {
   type: number;
   name: string;
   description: string;
   icon: string | null;
+  promote?: Record<string, ApiTalentPromote>;
 }
 
 interface ApiConstellation {
@@ -130,6 +148,9 @@ interface ApiUpgrade {
     promoteLevel?: number;
     unlockMaxLevel?: number;
     addProps?: Record<string, number>;
+    costItems?: Record<string, number>;
+    coinCost?: number;
+    requiredPlayerLevel?: number;
   }>;
 }
 
@@ -257,6 +278,9 @@ function buildStats(
       promoteLevel: p.promoteLevel ?? 0,
       unlockMaxLevel: p.unlockMaxLevel ?? MAX_LEVEL,
       addProps: p.addProps ?? {},
+      costItems: p.costItems ?? {},
+      coinCost: p.coinCost ?? 0,
+      requiredPlayerLevel: p.requiredPlayerLevel,
     })),
   };
 }
@@ -264,6 +288,21 @@ function buildStats(
 // ---------------------------------------------------------
 // 取得関数
 // ---------------------------------------------------------
+
+/** 天賦のレベル別強化データを正規化する */
+function parseTalentUpgrades(
+  promote: Record<string, ApiTalentPromote> | undefined,
+): TalentLevelUpgrade[] {
+  if (!promote) return [];
+  return Object.values(promote)
+    .filter((p) => p.level != null)
+    .sort((a, b) => (a.level ?? 0) - (b.level ?? 0))
+    .map((p) => ({
+      level: p.level!,
+      costItems: p.costItems ?? {},
+      coinCost: p.coinCost ?? 0,
+    }));
+}
 
 /** キャラクターのスキル・天賦・凸効果を取得する */
 export async function fetchAvatarDetail(
@@ -293,12 +332,14 @@ export async function fetchAvatarDetail(
       name: t.name,
       description: stripMarkup(t.description),
       iconUrl: t.icon ? `${ASSET_URL}/${t.icon}.png` : null,
+      upgrades: parseTalentUpgrades(t.promote),
     })),
     ...passive.map((t) => ({
       kind: "passive" as const,
       name: t.name,
       description: stripMarkup(t.description),
       iconUrl: t.icon ? `${ASSET_URL}/${t.icon}.png` : null,
+      upgrades: [],
     })),
   ];
 
@@ -349,7 +390,7 @@ export async function fetchWeaponDetail(
   // レベル（10刻み）ごとの実ステータスを成長曲線から計算する
   const curveData = await fetchData<ApiCurveData>("/api/v2/static/weaponCurve");
   const stats = buildStats(data.upgrade, curveData);
-  const levelStats: WeaponLevelStat[] = WEAPON_LEVEL_OPTIONS.map((level) => {
+  const levelStats: WeaponLevelStat[] = LEVEL_MARKS.map((level) => {
     const atkProp = stats?.props.find(
       (p) => p.propType === "FIGHT_PROP_BASE_ATTACK",
     );
@@ -388,6 +429,7 @@ export async function fetchWeaponDetail(
     effectName: affix?.name ?? null,
     effectDescriptions,
     levelStats,
+    promotes: stats?.promotes ?? [],
   };
 }
 

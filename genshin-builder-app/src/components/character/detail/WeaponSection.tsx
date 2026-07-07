@@ -4,12 +4,14 @@ import Image from "next/image";
 import type { ProgressPayload } from "@/lib/actions/progress";
 import {
   formatSubStatValue,
-  WEAPON_LEVEL_OPTIONS,
   type WeaponDetail,
 } from "@/lib/api/amber-details";
+import type { MaterialInfo } from "@/lib/repository/materials";
 import type { WeaponOption } from "@/lib/repository/weapons";
 import Accordion from "@/components/ui/Accordion";
+import LevelSlider from "@/components/ui/LevelSlider";
 import WeaponPicker from "./WeaponPicker";
+import LevelMaterialsPanel from "./LevelMaterialsPanel";
 
 const inputClass =
   "rounded-lg border border-white/10 bg-[#151d2a] px-2 py-1.5 text-sm text-gray-200 focus:border-accent focus:outline-none";
@@ -23,12 +25,14 @@ export default function WeaponSection({
   progress,
   weapons,
   weaponDetail,
+  materialLookup,
   onWeaponChange,
   onChange,
 }: {
   progress: ProgressPayload;
   weapons: WeaponOption[];
   weaponDetail: WeaponDetail | null;
+  materialLookup: MaterialInfo[];
   onWeaponChange: (weaponId: string) => void;
   onChange: (patch: Partial<ProgressPayload>) => void;
 }) {
@@ -96,26 +100,6 @@ export default function WeaponSection({
           </div>
           <div>
             <label
-              htmlFor="weapon-level"
-              className="mb-1 block text-xs text-gray-400"
-            >
-              レベル
-            </label>
-            <select
-              id="weapon-level"
-              value={progress.weaponLevel}
-              onChange={(e) => onChange({ weaponLevel: Number(e.target.value) })}
-              className={inputClass}
-            >
-              {WEAPON_LEVEL_OPTIONS.map((level) => (
-                <option key={level} value={level}>
-                  Lv.{level}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label
               htmlFor="weapon-refinement"
               className="mb-1 block text-xs text-gray-400"
             >
@@ -137,6 +121,23 @@ export default function WeaponSection({
             </select>
           </div>
         </div>
+
+        {progress.weaponId && (
+          <div className="space-y-3">
+            <LevelSlider
+              id="weapon-level"
+              label="武器レベル"
+              value={progress.weaponLevel}
+              onChange={(weaponLevel) => onChange({ weaponLevel })}
+            />
+            <LevelMaterialsPanel
+              currentLevel={progress.weaponLevel}
+              promotes={weaponDetail?.promotes ?? []}
+              materials={materialLookup}
+              kind="weapon"
+            />
+          </div>
+        )}
 
         {/* 武器性能（レベルに応じて自動反映） */}
         {weaponDetail && (

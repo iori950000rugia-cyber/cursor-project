@@ -10,6 +10,7 @@ import { getScoreType } from "@/lib/artifact-score";
 import { getCharacter } from "@/lib/repository/characters";
 import { getProgress } from "@/lib/repository/progress";
 import { getWeaponsByType } from "@/lib/repository/weapons";
+import { getAllMaterialLookup } from "@/lib/repository/materials";
 import { getUserId } from "@/lib/user";
 import DetailEditor from "@/components/character/detail/DetailEditor";
 
@@ -42,11 +43,13 @@ export default async function CharacterDetailPage({ params }: Props) {
   const userId = await getUserId();
 
   // 育成状況・武器一覧・スキル/凸情報・聖遺物セットを並列取得
-  const [progress, weapons, avatarDetail, artifactSets] = await Promise.all([
+  const [progress, weapons, avatarDetail, artifactSets, materialLookup] =
+    await Promise.all([
     userId ? getProgress(userId, character.id) : Promise.resolve(null),
     getWeaponsByType(character.weaponType),
     fetchAvatarDetail(character.id),
     fetchArtifactSets(),
+    getAllMaterialLookup(),
   ]);
 
   // 装備中の武器があれば、その性能詳細も取得しておく
@@ -68,6 +71,7 @@ export default async function CharacterDetailPage({ params }: Props) {
         artifactSets={artifactSets}
         initialWeaponDetail={initialWeaponDetail}
         scoreType={getScoreType(character)}
+        materialLookup={materialLookup}
       />
     </div>
   );

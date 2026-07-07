@@ -46,9 +46,11 @@ async function ensureUserId(): Promise<string> {
 
 import {
   clampInt,
-  CHARACTER_LEVEL_MAX,
   snapWeaponLevel,
 } from "@/lib/input-limits";
+import { snapToLevelMark } from "@/lib/level-progression";
+import { snapTalentLevel } from "@/lib/talent-progression";
+import { getTalentLevelMax } from "@/lib/input-limits";
 
 /** 聖遺物データを検証・正規化する（不正な形は空の状態にする） */
 function sanitizeArtifacts(input: unknown): ArtifactState {
@@ -94,12 +96,21 @@ export async function saveProgress(
     const userId = await ensureUserId();
 
     const data = {
-      level: clampInt(payload.level, 1, CHARACTER_LEVEL_MAX),
+      level: snapToLevelMark(payload.level),
       ascension: clampInt(payload.ascension, 0, 6),
       constellation: clampInt(payload.constellation, 0, 6),
-      talentNormal: clampInt(payload.talents?.normalAttack, 1, 10),
-      talentSkill: clampInt(payload.talents?.elementalSkill, 1, 10),
-      talentBurst: clampInt(payload.talents?.elementalBurst, 1, 10),
+      talentNormal: snapTalentLevel(
+        payload.talents?.normalAttack,
+        getTalentLevelMax(payload.constellation),
+      ),
+      talentSkill: snapTalentLevel(
+        payload.talents?.elementalSkill,
+        getTalentLevelMax(payload.constellation),
+      ),
+      talentBurst: snapTalentLevel(
+        payload.talents?.elementalBurst,
+        getTalentLevelMax(payload.constellation),
+      ),
       weaponId: String(payload.weaponId ?? "").slice(0, 20),
       weaponName: String(payload.weaponName ?? "").slice(0, 100),
       weaponLevel: snapWeaponLevel(payload.weaponLevel),

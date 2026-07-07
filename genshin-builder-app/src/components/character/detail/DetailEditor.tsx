@@ -15,12 +15,17 @@ import type { Character, CharacterProgress } from "@/types/character";
 import { createEmptyArtifactState } from "@/types/character";
 import CharacterAvatar from "@/components/character/CharacterAvatar";
 import ElementBadge from "@/components/character/ElementBadge";
+import LevelSlider from "@/components/ui/LevelSlider";
 import { WEAPON_TYPE_INFO } from "@/lib/constants";
+import { getAscensionForLevel } from "@/lib/level-progression";
+import { snapWeaponLevel } from "@/lib/input-limits";
+import type { MaterialInfo } from "@/lib/repository/materials";
 import WeaponSection from "./WeaponSection";
 import ArtifactSection from "./ArtifactSection";
 import ConstellationSection from "./ConstellationSection";
 import TalentSection from "./TalentSection";
 import StatusPanel from "./StatusPanel";
+import LevelMaterialsPanel from "./LevelMaterialsPanel";
 
 type SaveStatus = "idle" | "pending" | "saved" | "error";
 
@@ -33,8 +38,6 @@ const SAVE_STATUS_LABEL: Record<SaveStatus, string> = {
 };
 
 const AUTOSAVE_DELAY_MS = 800;
-
-import { clampInt, CHARACTER_LEVEL_MAX, snapWeaponLevel } from "@/lib/input-limits";
 
 function toPayload(p: CharacterProgress | null): ProgressPayload {
   return {
@@ -56,14 +59,6 @@ function toPayload(p: CharacterProgress | null): ProgressPayload {
   };
 }
 
-/** 入力値を範囲内に丸める */
-function clamp(value: number, min: number, max: number): number {
-  return clampInt(value, min, max);
-}
-
-const numberInputClass =
-  "w-20 rounded-lg border border-white/10 bg-[#151d2a] px-2 py-1.5 text-sm text-gray-200 focus:border-accent focus:outline-none";
-
 /**
  * キャラクター詳細画面のエディタ本体（Client Component）
  *
@@ -79,6 +74,7 @@ export default function DetailEditor({
   artifactSets,
   initialWeaponDetail,
   scoreType,
+  materialLookup,
 }: {
   character: Character;
   initialProgress: CharacterProgress | null;
@@ -87,6 +83,7 @@ export default function DetailEditor({
   artifactSets: ArtifactSetInfo[];
   initialWeaponDetail: WeaponDetail | null;
   scoreType: ScoreType;
+  materialLookup: MaterialInfo[];
 }) {
   const [progress, setProgress] = useState<ProgressPayload>(() =>
     toPayload(initialProgress),
@@ -199,45 +196,29 @@ export default function DetailEditor({
           </p>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-end gap-4">
-          <div>
-            <label htmlFor="level" className="mb-1 block text-xs text-gray-400">
-              レベル (1-{CHARACTER_LEVEL_MAX})
-            </label>
-            <input
-              id="level"
-              type="number"
-              min={1}
-              max={CHARACTER_LEVEL_MAX}
-              value={progress.level}
-              onChange={(e) =>
-                update({
-                  level: clamp(Number(e.target.value), 1, CHARACTER_LEVEL_MAX),
-                })
-              }
-              className={numberInputClass}
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="ascension"
-              className="mb-1 block text-xs text-gray-400"
-            >
-              突破段階 (0-6)
-            </label>
-            <input
-              id="ascension"
-              type="number"
-              min={0}
-              max={6}
-              value={progress.ascension}
-              onChange={(e) =>
-                update({ ascension: clamp(Number(e.target.value), 0, 6) })
-              }
-              className={numberInputClass}
-            />
-          </div>
-          <label className="flex items-center gap-2 pb-1.5 text-sm">
+        <div className="mt-4 space-y-4">
+          <LevelSlider
+            id="character-level"
+            label="キャラクターレベル"
+            value={progress.level}
+            onChange={(level) => {
+              const promotes = avatarDetail?.stats?.promotes ?? [];
+              update({
+                level,
+                ascension: getAscensionForLevel(level, promotes),
+              });
+            }}
+          />
+          <p className="text-xs text-gray-500">
+            突破段階: {progress.ascension}/6（レベルに連動）
+          </p>
+          <LevelMaterialsPanel
+            currentLevel={progress.level}
+            promotes={avatarDetail?.stats?.promotes ?? []}
+            materials={materialLookup}
+            kind="character"
+          />
+          <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
               checked={progress.isCompleted}
@@ -270,6 +251,7 @@ export default function DetailEditor({
         progress={progress}
         weapons={weapons}
         weaponDetail={weaponDetail}
+        materialLookup={materialLookup}
         onWeaponChange={handleWeaponChange}
         onChange={update}
       />
@@ -293,6 +275,7 @@ export default function DetailEditor({
       <TalentSection
         talents={progress.talents}
         talentInfos={avatarDetail?.talents ?? []}
+        materialLookup={materialLookup}
         constellation={progress.constellation}
         onChange={(talents) => update({ talents })}
       />
