@@ -231,6 +231,31 @@ class HoyolabOwnedCharacter {
 
   bool get isOwned => true;
 
+  HoyolabOwnedCharacter copyWith({
+    String? id,
+    String? name,
+    int? level,
+    int? friendship,
+    int? constellation,
+    int? promoteLevel,
+    DateTime? obtainedAt,
+    String? iconUrl,
+    GameRecordWeapon? weapon,
+    List<GameRecordRelic>? relics,
+  }) =>
+      HoyolabOwnedCharacter(
+        id: id ?? this.id,
+        name: name ?? this.name,
+        level: level ?? this.level,
+        friendship: friendship ?? this.friendship,
+        constellation: constellation ?? this.constellation,
+        promoteLevel: promoteLevel ?? this.promoteLevel,
+        obtainedAt: obtainedAt ?? this.obtainedAt,
+        iconUrl: iconUrl ?? this.iconUrl,
+        weapon: weapon ?? this.weapon,
+        relics: relics ?? this.relics,
+      );
+
   factory HoyolabOwnedCharacter.fromSummaryJson(Map<String, dynamic> json) {
     final weaponRaw = json['weapon'] as Map<String, dynamic>?;
     final relicsRaw = json['reliquaries'] as List<dynamic>? ?? [];
@@ -241,6 +266,7 @@ class HoyolabOwnedCharacter {
       friendship: _asInt(json['fetter']),
       constellation: _asInt(json['actived_constellation_num']),
       promoteLevel: _asInt(json['promote_level']),
+      obtainedAt: parseObtainedAtFromCharacterJson(json),
       iconUrl: json['icon'] as String?,
       weapon: weaponRaw == null
           ? null
@@ -250,6 +276,62 @@ class HoyolabOwnedCharacter {
           .toList(),
     );
   }
+}
+
+/// HoYoLAB キャラ JSON から取得日時を抽出（公式フィールド未定義のため複数候補を試す）
+DateTime? parseObtainedAtFromCharacterJson(Map<String, dynamic> json) {
+  const keys = [
+    'obtained_time',
+    'obtain_time',
+    'wear_time',
+    'get_time',
+    'create_time',
+    'active_time',
+    'obtained_at',
+    'wearer_time',
+  ];
+
+  for (final key in keys) {
+    final parsed = parseFlexibleDateTime(json[key]);
+    if (parsed != null) return parsed;
+  }
+
+  final external = json['external'];
+  if (external is Map) {
+    final map = Map<String, dynamic>.from(external);
+    for (final key in keys) {
+      final parsed = parseFlexibleDateTime(map[key]);
+      if (parsed != null) return parsed;
+    }
+  }
+
+  return null;
+}
+
+DateTime? parseFlexibleDateTime(dynamic raw) {
+  if (raw == null) return null;
+  if (raw is DateTime) return raw;
+  if (raw is int) {
+    final millis = raw > 9999999999 ? raw : raw * 1000;
+    return DateTime.fromMillisecondsSinceEpoch(millis);
+  }
+  if (raw is num) {
+    final value = raw.toInt();
+    final millis = value > 9999999999 ? value : value * 1000;
+    return DateTime.fromMillisecondsSinceEpoch(millis);
+  }
+  if (raw is String) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    final unix = int.tryParse(trimmed);
+    if (unix != null) {
+      final millis = unix > 9999999999 ? unix : unix * 1000;
+      return DateTime.fromMillisecondsSinceEpoch(millis);
+    }
+    final normalized = trimmed.contains('T') ? trimmed : trimmed.replaceFirst(' ', 'T');
+    return DateTime.tryParse(normalized);
+  }
+  return null;
 }
 
 class HoyolabCharacterBuild {

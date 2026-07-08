@@ -1,11 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/hoyolab/hoyolab_character_discovery_store.dart';
 import '../data/hoyolab/hoyolab_game_data_cache.dart';
 import '../data/hoyolab/hoyolab_game_data_repository.dart';
+import '../data/hoyolab/hoyolab_home_disk_cache.dart';
 import '../data/hoyolab/models/game_record.dart';
 import '../data/hoyolab/owned_characters_result.dart';
 import '../domain/character_list_sort.dart';
 import 'app_providers.dart';
+import 'character_list_sort_providers.dart';
 import 'hoyolab_providers.dart';
 
 final hoyolabGameDataCacheProvider = Provider<HoyolabGameDataCache>((ref) {
@@ -24,6 +27,12 @@ final hoyolabGameDataRepositoryProvider =
   );
 });
 
+final hoyolabCharacterDiscoveryStoreProvider =
+    FutureProvider<HoyolabCharacterDiscoveryStore>((ref) async {
+  final db = await ref.watch(appDatabaseProvider.future);
+  return HoyolabCharacterDiscoveryStore(AppDatabaseSettingsStore(db));
+});
+
 final hoyolabOwnedFetchResultProvider =
     FutureProvider<OwnedCharactersFetchResult>((ref) async {
   final flags = await ref.watch(featureFlagsProvider.future);
@@ -35,7 +44,19 @@ final hoyolabOwnedFetchResultProvider =
     return const OwnedCharactersFetchResult(characters: {}, notLinked: true);
   }
   final repo = await ref.watch(hoyolabGameDataRepositoryProvider.future);
-  return repo.fetchOwnedCharacters();
+  final result = await repo.fetchOwnedCharacters();
+  final uid = session.uid;
+  if (uid == null || uid.isEmpty || !result.hasCharacters) {
+    return result;
+  }
+
+  final discoveryStore =
+      await ref.watch(hoyolabCharacterDiscoveryStoreProvider.future);
+  final enriched = await discoveryStore.enrichOwnedCharacters(
+    uid: uid,
+    characters: result.characters,
+  );
+  return result.copyWith(characters: enriched);
 });
 
 final hoyolabOwnedCharacterMapProvider =
@@ -48,9 +69,12 @@ final sortedCharacterEntriesProvider =
     FutureProvider<List<CharacterListEntry>>((ref) async {
   final characters = await ref.watch(charactersProvider.future);
   final ownedMap = await ref.watch(hoyolabOwnedCharacterMapProvider.future);
+  final sortSettings = ref.watch(characterListSortSettingsProvider).valueOrNull ??
+      const CharacterListSortSettings();
   return buildCharacterListEntries(
     characters: characters,
     ownedMap: ownedMap,
+    settings: sortSettings,
   );
 });
 

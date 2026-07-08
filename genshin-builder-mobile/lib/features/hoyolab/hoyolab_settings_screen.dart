@@ -8,6 +8,7 @@ import '../../data/hoyolab/models/daily_note.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/hoyolab_game_refresh.dart';
 import '../../providers/hoyolab_home_providers.dart';
+import '../../providers/hoyolab_game_providers.dart';
 import '../../providers/hoyolab_providers.dart';
 import 'hoyolab_login_screen.dart';
 import 'widgets/hoyolab_disclaimer_banner.dart';
@@ -94,6 +95,9 @@ class _HoyolabSettingsScreenState extends ConsumerState<HoyolabSettingsScreen> {
       if (session.uid != null && session.uid!.isNotEmpty) {
         final diskCache = await ref.read(hoyolabHomeDiskCacheProvider.future);
         await diskCache.clearForUid(session.uid!);
+        final discoveryStore =
+            await ref.read(hoyolabCharacterDiscoveryStoreProvider.future);
+        await discoveryStore.clearForUid(session.uid!);
       }
       final repo = await ref.read(hoyolabRepositoryProvider.future);
       await repo.disconnect();
