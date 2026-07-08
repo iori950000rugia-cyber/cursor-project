@@ -26,6 +26,7 @@ class HoyolabConstants {
   static const characterDetailPath = '/character/detail';
   static const spiralAbyssPath = '/spiralAbyss';
   static const roleCombatPath = '/role_combat';
+  static const hardChallengePath = '/hard_challenge';
 
   /// Battle Chronicle 用 client_type
   static const recordClientType = '5';

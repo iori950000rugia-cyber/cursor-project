@@ -327,9 +327,77 @@ class HoyolabApi {
     });
   }
 
+  Future<StygianOnslaughtStatus?> getStygianOnslaught({
+    bool needDetail = true,
+  }) {
+    _ensureRecordParams();
+    return _queue.run(() async {
+      final query = {
+        'role_id': uid!,
+        'server': region!,
+        'need_detail': needDetail ? 'true' : 'false',
+      };
+      final ds = HoyolabAuth.generateDsToken(queryParameters: query);
+
+      HoyolabApiException? lastError;
+      for (final base in HoyolabConstants.gameRecordBaseUrls) {
+        try {
+          final uri = Uri.parse('$base${HoyolabConstants.hardChallengePath}')
+              .replace(queryParameters: query);
+          final response = await _client.get(
+            uri,
+            headers: HoyolabAuth.buildRecordHeaders(
+              cookie: cookie!,
+              appVersion: appVersion,
+              dsToken: ds,
+            ),
+          );
+          final json = jsonDecode(response.body) as Map<String, dynamic>;
+          final result = HoyolabApiResult<Map<String, dynamic>>.fromJson(
+            json,
+            (obj) => obj! as Map<String, dynamic>,
+          );
+          if (result.hasError) {
+            throw HoyolabApiException(result.retcode, result.message);
+          }
+          final data = result.data;
+          if (data == null) return null;
+
+          final seasons = data['data'] as List<dynamic>? ?? [];
+          for (final raw in seasons) {
+            final item = raw as Map<String, dynamic>;
+            final schedule = item['schedule'] as Map<String, dynamic>? ?? {};
+            if (schedule['is_valid'] as bool? ?? false) {
+              return StygianOnslaughtStatus.fromSeasonJson(item);
+            }
+          }
+
+          if (seasons.isEmpty) {
+            return StygianOnslaughtStatus(
+              isUnlocked: data['is_unlock'] as bool? ?? false,
+              bestDifficultyId: 0,
+              bestTimeSeconds: 0,
+              hasData: false,
+            );
+          }
+
+          return StygianOnslaughtStatus.fromSeasonJson(
+            seasons.first as Map<String, dynamic>,
+          );
+        } on HoyolabApiException catch (e) {
+          lastError = e;
+        }
+      }
+
+      if (lastError != null) throw lastError;
+      return null;
+    });
+  }
+
   Future<AdventureStatus> getAdventureStatus() async {
     SpiralAbyssStatus? spiral;
     ImaginariumTheaterStatus? theater;
+    StygianOnslaughtStatus? stygian;
     try {
       spiral = await getSpiralAbyss();
     } on HoyolabApiException {
@@ -340,9 +408,15 @@ class HoyolabApi {
     } on HoyolabApiException {
       theater = null;
     }
+    try {
+      stygian = await getStygianOnslaught();
+    } on HoyolabApiException {
+      stygian = null;
+    }
     return AdventureStatus(
       spiralAbyss: spiral,
       imaginariumTheater: theater,
+      stygianOnslaught: stygian,
       fetchedAt: DateTime.now(),
     );
   }

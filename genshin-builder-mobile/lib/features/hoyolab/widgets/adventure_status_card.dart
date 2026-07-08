@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../data/hoyolab/hoyolab_exceptions.dart';
 import '../../../providers/hoyolab_game_refresh.dart';
 import '../../../providers/hoyolab_home_providers.dart';
-import '../../../providers/hoyolab_home_providers.dart';
 
 class AdventureStatusCard extends ConsumerWidget {
   const AdventureStatusCard({super.key});
@@ -19,7 +18,10 @@ class AdventureStatusCard extends ConsumerWidget {
         if (status == null) return const SizedBox.shrink();
         final spiral = status.spiralAbyss;
         final theater = status.imaginariumTheater;
-        if (spiral == null && theater == null) return const SizedBox.shrink();
+        final stygian = status.stygianOnslaught;
+        if (spiral == null && theater == null && stygian == null) {
+          return const SizedBox.shrink();
+        }
 
         final updated = status.latestUpdate;
         final updatedLabel = updated == null
@@ -85,6 +87,21 @@ class AdventureStatusCard extends ConsumerWidget {
                         : null,
                   ),
                 ],
+                if (stygian != null) ...[
+                  if (spiral != null || theater != null) const SizedBox(height: 8),
+                  _StatusTile(
+                    icon: Icons.shield_moon_outlined,
+                    title: '幽境の激戦',
+                    value: stygian.hasData && stygian.bestDifficultyId > 0
+                        ? '${stygian.difficultyLabel} · ${_formatClearTime(stygian.bestTimeSeconds)}'
+                        : stygian.isUnlocked
+                            ? 'データなし'
+                            : '未解放',
+                    subtitle: stygian.seasonName.isNotEmpty
+                        ? stygian.seasonName
+                        : null,
+                  ),
+                ],
                 if (updatedLabel != null) ...[
                   const SizedBox(height: 12),
                   Text(
@@ -123,6 +140,11 @@ class AdventureStatusCard extends ConsumerWidget {
       },
     );
   }
+}
+
+String _formatClearTime(int seconds) {
+  if (seconds <= 0) return 'クリア';
+  return '$seconds秒';
 }
 
 class _StatusTile extends StatelessWidget {

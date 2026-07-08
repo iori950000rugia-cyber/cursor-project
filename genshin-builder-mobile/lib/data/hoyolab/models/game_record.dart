@@ -616,21 +616,98 @@ class ImaginariumTheaterStatus {
       };
 }
 
+class StygianOnslaughtStatus {
+  const StygianOnslaughtStatus({
+    required this.isUnlocked,
+    required this.bestDifficultyId,
+    required this.bestTimeSeconds,
+    this.hasData = false,
+    this.seasonName = '',
+    this.updatedAt,
+  });
+
+  final bool isUnlocked;
+  final int bestDifficultyId;
+  final int bestTimeSeconds;
+  final bool hasData;
+  final String seasonName;
+  final DateTime? updatedAt;
+
+  String get difficultyLabel => switch (bestDifficultyId) {
+        1 => 'イージー',
+        2 => 'ノーマル',
+        3 => 'ハード',
+        4 => 'マスター',
+        5 => 'エクストラ',
+        6 => 'アルティメット',
+        _ => bestDifficultyId > 0 ? '難易度 $bestDifficultyId' : '未挑戦',
+      };
+
+  factory StygianOnslaughtStatus.fromSeasonJson(Map<String, dynamic> json) {
+    final schedule = json['schedule'] as Map<String, dynamic>? ?? {};
+    final single = json['single'] as Map<String, dynamic>? ?? {};
+    final best = single['best'] as Map<String, dynamic>?;
+
+    DateTime? updatedAt;
+    final end = schedule['end_date_time'] as Map<String, dynamic>?;
+    if (end != null) {
+      updatedAt = DateTime(
+        _asInt(end['year'], fallback: 1970),
+        _asInt(end['month'], fallback: 1),
+        _asInt(end['day'], fallback: 1),
+      );
+    }
+
+    return StygianOnslaughtStatus(
+      isUnlocked: json['is_unlock'] as bool? ?? true,
+      bestDifficultyId: _asInt(best?['difficulty']),
+      bestTimeSeconds: _resolveStygianBestTimeSeconds(single),
+      hasData: single['has_data'] as bool? ?? best != null,
+      seasonName: schedule['name'] as String? ?? '',
+      updatedAt: updatedAt,
+    );
+  }
+
+  factory StygianOnslaughtStatus.fromCacheJson(Map<String, dynamic> json) =>
+      StygianOnslaughtStatus(
+        isUnlocked: json['is_unlock'] as bool? ?? true,
+        bestDifficultyId: _asInt(json['best_difficulty_id']),
+        bestTimeSeconds: _asInt(json['best_time_seconds']),
+        hasData: json['has_data'] as bool? ?? false,
+        seasonName: json['season_name'] as String? ?? '',
+        updatedAt: json['updated_at'] == null
+            ? null
+            : DateTime.tryParse(json['updated_at'] as String),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'is_unlock': isUnlocked,
+        'best_difficulty_id': bestDifficultyId,
+        'best_time_seconds': bestTimeSeconds,
+        'has_data': hasData,
+        'season_name': seasonName,
+        if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
+      };
+}
+
 class AdventureStatus {
   const AdventureStatus({
     this.spiralAbyss,
     this.imaginariumTheater,
+    this.stygianOnslaught,
     this.fetchedAt,
   });
 
   final SpiralAbyssStatus? spiralAbyss;
   final ImaginariumTheaterStatus? imaginariumTheater;
+  final StygianOnslaughtStatus? stygianOnslaught;
   final DateTime? fetchedAt;
 
   DateTime? get latestUpdate {
     final dates = [
       spiralAbyss?.updatedAt,
       imaginariumTheater?.updatedAt,
+      stygianOnslaught?.updatedAt,
       fetchedAt,
     ].whereType<DateTime>();
     if (dates.isEmpty) return fetchedAt;
@@ -649,6 +726,11 @@ class AdventureStatus {
             : ImaginariumTheaterStatus.fromCacheJson(
                 json['imaginarium_theater'] as Map<String, dynamic>,
               ),
+        stygianOnslaught: json['stygian_onslaught'] == null
+            ? null
+            : StygianOnslaughtStatus.fromCacheJson(
+                json['stygian_onslaught'] as Map<String, dynamic>,
+              ),
         fetchedAt: json['fetched_at'] == null
             ? null
             : DateTime.tryParse(json['fetched_at'] as String),
@@ -658,8 +740,28 @@ class AdventureStatus {
         if (spiralAbyss != null) 'spiral_abyss': spiralAbyss!.toJson(),
         if (imaginariumTheater != null)
           'imaginarium_theater': imaginariumTheater!.toJson(),
+        if (stygianOnslaught != null)
+          'stygian_onslaught': stygianOnslaught!.toJson(),
         if (fetchedAt != null) 'fetched_at': fetchedAt!.toIso8601String(),
       };
+}
+
+/// HoYoLAB は最高難易度の「3ボス合計クリア時間」を表示する。
+/// `need_detail=true` 時は `challenge[].second` の合計が正確。
+int _resolveStygianBestTimeSeconds(Map<String, dynamic> single) {
+  final best = single['best'] as Map<String, dynamic>?;
+  final challenges = single['challenge'] as List<dynamic>? ?? [];
+
+  var challengeTotal = 0;
+  for (final raw in challenges) {
+    challengeTotal += _asInt((raw as Map<String, dynamic>)['second']);
+  }
+
+  final bestSecond = _asInt(best?['second']);
+  if (challenges.isNotEmpty && challengeTotal > 0) {
+    return challengeTotal;
+  }
+  return bestSecond;
 }
 
 int _asInt(dynamic value, {int fallback = 0}) {

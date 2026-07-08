@@ -60,6 +60,13 @@ void main() {
           medalNum: 12,
           hasData: true,
         ),
+        stygianOnslaught: StygianOnslaughtStatus(
+          isUnlocked: true,
+          bestDifficultyId: 4,
+          bestTimeSeconds: 372,
+          hasData: true,
+          seasonName: '当期',
+        ),
       );
 
       await cache.saveAdventure('123456', status);
@@ -68,6 +75,7 @@ void main() {
       expect(loaded, isNotNull);
       expect(loaded!.data.spiralAbyss?.maxFloor, '12-3');
       expect(loaded.data.imaginariumTheater?.difficultyLabel, 'ハード');
+      expect(loaded.data.stygianOnslaught?.difficultyLabel, 'マスター');
     });
 
     test('clearForUid removes cached entries', () async {
