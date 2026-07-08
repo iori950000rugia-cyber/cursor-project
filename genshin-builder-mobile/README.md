@@ -1,0 +1,54 @@
+# Genshin Builder Mobile
+
+原神のキャラクター育成（レベル・突破・天賦・武器）に必要な素材を計算・管理する **非公式** ファンツールです。
+
+> **免責事項**: 本アプリは miHoYo / HoYoverse とは一切関係ありません。ゲームデータは [Project Amber (gi.yatta.moe)](https://gi.yatta.moe) 等の第三者ソースを参照しており、正確性・最新性は保証されません。
+
+## 機能（Phase 1 MVP）
+
+- キャラクター一覧・詳細（Lv / 天賦 / 武器スライダー + 必要素材表示）
+- 素材ブックマーク（ローカル DB、materialId 合算、キャラアイコン表示）
+- ゲームマスターデータ同期（Project Amber → ローカル SQLite）
+- HoYoLAB 連携は **Phase 2**（設計のみ → `docs/PHASE2_HOYOLAB.md`）
+
+## 関連プロジェクト
+
+| プロジェクト | 説明 |
+|-------------|------|
+| `../genshin-builder-app/` | Web 版（Next.js）。計算ロジック・仕様の参照元 |
+| [genshin_material](https://github.com/chika3742/genshin_material) | Flutter 参考実装（Drift / HoYoLAB WebView Cookie） |
+
+## セットアップ
+
+[Flutter SDK](https://docs.flutter.dev/get-started/install) をインストールし PATH に追加してください。
+
+**本環境の導入先**: `C:\src\flutter`（stable、`flutter\bin` をユーザー PATH に追加済み）
+
+```bash
+cd genshin-builder-mobile
+
+# 初回のみ: プラットフォームフォルダを生成（lib/ は既存のまま）
+flutter create . --project-name genshin_builder_mobile
+
+flutter pub get
+dart run build_runner build --delete-conflicting-outputs   # Drift codegen
+flutter analyze
+flutter test
+flutter run
+```
+
+`flutter doctor` で Android / Visual Studio の警告が出る場合があります。テスト・codegen には Flutter + Chrome で十分です。実機ビルドには Android Studio または Visual Studio の C++ ワークロードが必要です。
+
+## アーキテクチャ
+
+`ARCHITECTURE.md` を参照。
+
+## 開発ガイド
+
+- `AGENTS.md` — AI エージェント向けルール
+- `docs/PHASE1_IMPLEMENTATION.md` — Phase 1 ファイル一覧・優先順位
+- `docs/AGENT_MEMORY.md` — セッション決定ログ
+
+## ライセンス
+
+MIT（ゲームアセット・データの権利は原権利者に帰属）

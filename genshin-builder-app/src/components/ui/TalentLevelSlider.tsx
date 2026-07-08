@@ -14,12 +14,14 @@ export default function TalentLevelSlider({
   label,
   id,
   max = TALENT_LEVEL_MAX,
+  headerExtra,
 }: {
   value: number;
   onChange: (level: number) => void;
   label: string;
   id: string;
   max?: number;
+  headerExtra?: React.ReactNode;
 }) {
   const marks = TALENT_MARKS.filter((m) => m <= max);
 
@@ -35,6 +37,7 @@ export default function TalentLevelSlider({
       showFutureZone={max < TALENT_LEVEL_DISPLAY_MAX}
       futureHint="Lv.11〜13 は命ノ星座+3 対応予定（未実装）"
       compactTicks
+      headerExtra={headerExtra}
     />
   );
 }

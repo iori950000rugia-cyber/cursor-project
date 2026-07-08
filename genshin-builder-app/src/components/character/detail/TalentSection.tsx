@@ -1,9 +1,14 @@
 "use client";
 
 import Image from "next/image";
+import { useMemo } from "react";
 import type { TalentInfo } from "@/lib/api/amber-details";
 import type { ProgressPayload } from "@/lib/actions/progress";
+import CultivationBookmarkButton from "@/components/bookmark/CultivationBookmarkButton";
+import type { BookmarkCharacterSource } from "@/types/bookmark";
 import { getTalentLevelMax } from "@/lib/input-limits";
+import { TALENT_MARKS } from "@/lib/level-config";
+import { getRangeTalentRequirements } from "@/lib/material-requirements";
 import type { MaterialInfo } from "@/lib/repository/materials";
 import {
   snapTalentLevel,
@@ -33,6 +38,9 @@ const ACTIVE_TALENTS: Array<{
  * 詳細: スライダー・必要素材・スキル説明・固有天賦一覧
  */
 export default function TalentSection({
+  characterId,
+  characterName,
+  bookmarkCharacter,
   talents,
   talentInfos,
   talentUpgradesByKind,
@@ -40,6 +48,9 @@ export default function TalentSection({
   constellation = 0,
   onChange,
 }: {
+  characterId: string;
+  characterName: string;
+  bookmarkCharacter: BookmarkCharacterSource;
   talents: Talents;
   talentInfos: TalentInfo[];
   talentUpgradesByKind: Map<
@@ -51,6 +62,10 @@ export default function TalentSection({
   onChange: (talents: Talents) => void;
 }) {
   const talentMax = getTalentLevelMax(constellation);
+  const materialMap = useMemo(
+    () => new Map(materialLookup.map((m) => [m.id, m])),
+    [materialLookup],
+  );
 
   const infoByKind = new Map(
     talentInfos
@@ -79,6 +94,16 @@ export default function TalentSection({
       <div className="space-y-4">
         {ACTIVE_TALENTS.map(({ kind, key, label }) => {
           const info = infoByKind.get(kind);
+          const upgrades =
+            talentUpgradesByKind.get(kind) ?? info?.upgrades ?? [];
+          const bookmarkContext = {
+            kind: "talent" as const,
+            targetId: `${characterId}:${kind}`,
+            targetName: characterName,
+            subLabel: label,
+            character: bookmarkCharacter,
+          };
+
           return (
             <div key={key} className="space-y-3 rounded-lg bg-[#151d2a] p-3">
               <div className="flex items-center gap-2">
@@ -109,15 +134,33 @@ export default function TalentSection({
                     [key]: snapTalentLevel(level, talentMax),
                   })
                 }
+                headerExtra={
+                  <CultivationBookmarkButton
+                    ctx={bookmarkContext}
+                    marks={TALENT_MARKS}
+                    max={talentMax}
+                    currentLevel={talents[key]}
+                    getRequirements={(from, to) =>
+                      getRangeTalentRequirements(
+                        from,
+                        to,
+                        talentMax,
+                        upgrades,
+                        (id) =>
+                          materialMap.get(id)?.name ?? `素材 #${id}`,
+                      )
+                    }
+                    materialLookup={materialLookup}
+                  />
+                }
               />
 
               <TalentMaterialsPanel
                 currentLevel={talents[key]}
                 maxLevel={talentMax}
-                upgrades={
-                  talentUpgradesByKind.get(kind) ?? info?.upgrades ?? []
-                }
+                upgrades={upgrades}
                 materials={materialLookup}
+                bookmarkContext={bookmarkContext}
               />
 
               {info?.description && (

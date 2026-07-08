@@ -1,11 +1,16 @@
 "use client";
 
 import Image from "next/image";
+import { useMemo } from "react";
 import type { ProgressPayload } from "@/lib/actions/progress";
+import CultivationBookmarkButton from "@/components/bookmark/CultivationBookmarkButton";
+import type { BookmarkCharacterSource } from "@/types/bookmark";
 import {
   formatSubStatValue,
   type WeaponDetail,
 } from "@/lib/api/amber-details";
+import { LEVEL_MARKS, LEVEL_MAX } from "@/lib/level-config";
+import { getRangeLevelRequirements } from "@/lib/material-requirements";
 import type { UpgradeDataCache } from "@/lib/repository/upgrade-data";
 import type { MaterialInfo } from "@/lib/repository/materials";
 import type { WeaponOption } from "@/lib/repository/weapons";
@@ -23,6 +28,9 @@ const inputClass =
  * 詳細: 武器変更・レベル(10刻み)/精錬変更・レベル別ステータス・武器効果
  */
 export default function WeaponSection({
+  characterId,
+  characterName,
+  bookmarkCharacter,
   progress,
   weapons,
   weaponDetail,
@@ -31,6 +39,9 @@ export default function WeaponSection({
   onWeaponChange,
   onChange,
 }: {
+  characterId: string;
+  characterName: string;
+  bookmarkCharacter: BookmarkCharacterSource;
   progress: ProgressPayload;
   weapons: WeaponOption[];
   weaponDetail: WeaponDetail | null;
@@ -40,6 +51,22 @@ export default function WeaponSection({
   onChange: (patch: Partial<ProgressPayload>) => void;
 }) {
   const selected = weapons.find((w) => w.id === progress.weaponId) ?? null;
+  const weaponRarity = weaponDetail?.rarity ?? selected?.rarity ?? 4;
+
+  const materialMap = useMemo(
+    () => new Map(materialLookup.map((m) => [m.id, m])),
+    [materialLookup],
+  );
+
+  const weaponBookmarkContext = useMemo(() => {
+    if (!progress.weaponId) return null;
+    return {
+      kind: "weapon-level" as const,
+      targetId: progress.weaponId,
+      targetName: selected?.name ?? characterName,
+      character: bookmarkCharacter,
+    };
+  }, [progress.weaponId, selected?.name, characterName, bookmarkCharacter]);
 
   // 現在の武器レベルに対応する実ステータス（レベル変更で自動反映）
   const levelStat =
@@ -132,14 +159,38 @@ export default function WeaponSection({
               label="武器レベル"
               value={progress.weaponLevel}
               onChange={(weaponLevel) => onChange({ weaponLevel })}
+              headerExtra={
+                weaponBookmarkContext ? (
+                  <CultivationBookmarkButton
+                    ctx={weaponBookmarkContext}
+                    marks={LEVEL_MARKS}
+                    max={LEVEL_MAX}
+                    currentLevel={progress.weaponLevel}
+                    getRequirements={(from, to) =>
+                      getRangeLevelRequirements(
+                        from,
+                        to,
+                        weaponDetail?.promotes ?? [],
+                        "weapon",
+                        weaponRarity,
+                        upgradeCache,
+                        (id) =>
+                          materialMap.get(id)?.name ?? `素材 #${id}`,
+                      )
+                    }
+                    materialLookup={materialLookup}
+                  />
+                ) : null
+              }
             />
             <LevelMaterialsPanel
               currentLevel={progress.weaponLevel}
               promotes={weaponDetail?.promotes ?? []}
               materials={materialLookup}
               kind="weapon"
-              weaponRarity={weaponDetail?.rarity ?? selected?.rarity ?? 4}
+              weaponRarity={weaponRarity}
               upgradeCache={upgradeCache}
+              bookmarkContext={weaponBookmarkContext ?? undefined}
             />
           </div>
         )}

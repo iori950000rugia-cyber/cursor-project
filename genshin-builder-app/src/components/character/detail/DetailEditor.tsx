@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ProgressPayload } from "@/lib/actions/progress";
 import { deleteProgress, saveProgress } from "@/lib/actions/progress";
@@ -15,9 +15,12 @@ import type { Character, CharacterProgress } from "@/types/character";
 import { createEmptyArtifactState } from "@/types/character";
 import CharacterAvatar from "@/components/character/CharacterAvatar";
 import ElementBadge from "@/components/character/ElementBadge";
+import CultivationBookmarkButton from "@/components/bookmark/CultivationBookmarkButton";
 import LevelSlider from "@/components/ui/LevelSlider";
 import { WEAPON_TYPE_INFO } from "@/lib/constants";
+import { LEVEL_MARKS, LEVEL_MAX } from "@/lib/level-config";
 import { getAscensionForLevel } from "@/lib/level-progression";
+import { getRangeLevelRequirements } from "@/lib/material-requirements";
 import { snapWeaponLevel } from "@/lib/input-limits";
 import type { CharacterUpgradeData } from "@/lib/api/upgrade-types";
 import type { MaterialInfo } from "@/lib/repository/materials";
@@ -92,6 +95,28 @@ export default function DetailEditor({
   upgradeCache: UpgradeDataCache;
 }) {
   const characterPromotes = characterUpgrade?.promotes ?? [];
+  const materialMap = useMemo(
+    () => new Map(materialLookup.map((m) => [m.id, m])),
+    [materialLookup],
+  );
+  const bookmarkCharacter = useMemo(
+    () => ({
+      characterId: character.id,
+      characterName: character.name,
+      characterIconUrl: character.iconUrl ?? null,
+      characterEmoji: character.emoji,
+    }),
+    [character.id, character.name, character.iconUrl, character.emoji],
+  );
+  const characterBookmarkContext = useMemo(
+    () => ({
+      kind: "character-level" as const,
+      targetId: character.id,
+      targetName: character.name,
+      character: bookmarkCharacter,
+    }),
+    [character.id, character.name, bookmarkCharacter],
+  );
   const talentUpgradesByKind = new Map(
     (characterUpgrade?.talents ?? []).map((t) => [t.kind, t.upgrades]),
   );
@@ -217,6 +242,27 @@ export default function DetailEditor({
                 ascension: getAscensionForLevel(level, characterPromotes),
               });
             }}
+            headerExtra={
+              <CultivationBookmarkButton
+                ctx={characterBookmarkContext}
+                marks={LEVEL_MARKS}
+                max={LEVEL_MAX}
+                currentLevel={progress.level}
+                getRequirements={(from, to) =>
+                  getRangeLevelRequirements(
+                    from,
+                    to,
+                    characterPromotes,
+                    "character",
+                    5,
+                    upgradeCache,
+                    (id) =>
+                      materialMap.get(id)?.name ?? `素材 #${id}`,
+                  )
+                }
+                materialLookup={materialLookup}
+              />
+            }
           />
           <p className="text-xs text-gray-500">
             突破段階: {progress.ascension}/6（レベルに連動）
@@ -227,6 +273,7 @@ export default function DetailEditor({
             materials={materialLookup}
             kind="character"
             upgradeCache={upgradeCache}
+            bookmarkContext={characterBookmarkContext}
           />
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -258,6 +305,9 @@ export default function DetailEditor({
 
       {/* 2. 武器 */}
       <WeaponSection
+        characterId={character.id}
+        characterName={character.name}
+        bookmarkCharacter={bookmarkCharacter}
         progress={progress}
         weapons={weapons}
         weaponDetail={weaponDetail}
@@ -284,6 +334,9 @@ export default function DetailEditor({
 
       {/* 5. スキル・天賦 */}
       <TalentSection
+        characterId={character.id}
+        characterName={character.name}
+        bookmarkCharacter={bookmarkCharacter}
         talents={progress.talents}
         talentInfos={avatarDetail?.talents ?? []}
         talentUpgradesByKind={talentUpgradesByKind}

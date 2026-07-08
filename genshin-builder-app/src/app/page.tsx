@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getRecentProgress } from "@/lib/repository/progress";
 import { getUserId } from "@/lib/user";
 import ProgressCard from "@/components/character/ProgressCard";
+import HomeWithBookmarks from "@/components/home/HomeWithBookmarks";
 
 /**
  * ホーム画面（Server Component）
@@ -13,7 +14,7 @@ export default async function HomePage() {
   const recentItems = userId ? await getRecentProgress(userId, 4) : [];
 
   return (
-    <div className="space-y-8">
+    <HomeWithBookmarks>
       {/* ヒーローエリア */}
       <section className="rounded-2xl border border-white/10 bg-gradient-to-br from-[#1e2a3a] to-[#151d2a] p-6 sm:p-8">
         <h1 className="text-2xl font-bold sm:text-3xl">
@@ -66,6 +67,6 @@ export default async function HomePage() {
           </p>
         </div>
       </section>
-    </div>
+    </HomeWithBookmarks>
   );
 }

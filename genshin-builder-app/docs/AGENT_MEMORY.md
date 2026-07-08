@@ -1,0 +1,101 @@
+# Agent Memory Log
+
+> セッションごとの**決定事項・未完了タスク**を記録する。会話全文ではなく、次の Agent が作業を再開できる要点のみ書く。
+>
+> **運用:** タスク完了時に最新エントリを先頭（`##` 見出し）に追記。古いエントリは削除しない。
+
+---
+
+## エントリの書き方
+
+```markdown
+## YYYY-MM-DD — 短いタイトル
+
+- **目的:**
+- **決定事項:**
+- **変更ファイル（主要）:**
+- **未完了 / 次回:**
+```
+
+---
+
+## 2026-07-08 — Memory 自動保存 Hook
+
+- **目的:** Agent ターン終了時に Memory 追記を手動依頼なしでトリガー
+- **決定事項:**
+  - `c:\cursor project\.cursor\hooks.json`（ワークスペースルート）
+  - `afterFileEdit`（Write）→ `genshin-builder-app/.cursor/.memory-pending` フラグ
+  - `stop`（completed, loop_count=0）→ `followup_message` で AGENT_MEMORY 追記を自動実行
+  - loop_count≥1 でフラグ削除・ループ終了（`loop_limit: 2`）
+  - Ask モードやコード変更なしの会話ではフラグが立たず、追記も走らない
+- **変更ファイル（主要）:**
+  - `.cursor/hooks.json`, `.cursor/hooks/*.mjs`
+  - `genshin-builder-app/.gitignore`（`.memory-pending`）
+- **未完了 / 次回:** Windows で Hook が動かない場合は Cursor 再起動 / Hooks 出力チャンネルで確認
+
+---
+
+## 2026-07-08 — Agent Memory システム導入
+
+- **目的:** セッション間でコンテキストを引き継ぐため、要点ログと Cursor Rule を整備
+- **決定事項:**
+  - ログファイル: `docs/AGENT_MEMORY.md`（本ファイル）
+  - 更新ルール: `.cursor/rules/agent-memory.mdc`（`alwaysApply: true`）
+  - **自動追記:** ワークスペース `.cursor/hooks.json` の `stop` hook
+    - コード編集時 `afterFileEdit` → `.cursor/.memory-pending` フラグ
+    - Agent ターン終了時 → `docs/AGENT_MEMORY.md` 追記を自動トリガー
+  - 作業開始時は本ファイル最新エントリ + `AI_AGENT_RULES.md` + `ARCHITECTURE.md` を読む
+  - タスク完了時に Agent が本ファイルへ追記（ユーザーが「保存不要」と言った場合のみスキップ）
+- **変更ファイル（主要）:**
+  - `docs/AGENT_MEMORY.md`（新規）
+  - `.cursor/rules/agent-memory.mdc`（新規）
+  - `AI_AGENT_RULES.md`, `AGENTS.md`（参照追加）
+- **未完了 / 次回:** 特になし
+
+---
+
+## 2026-07-08 — 育成素材ブックマーク + キャラアイコン表示
+
+- **目的:** キャラ/武器/天賦の必要素材をブックマークし、ホームで合算管理
+- **決定事項:**
+  - 永続化: `localStorage` キー `gb_material_bookmarks`（DB ではなくクライアントのみ）
+  - 状態: `MaterialBookmarkContext` + `BookmarkProvider`（`layout.tsx` でラップ）
+  - 合算: `materialId` 単位（モラは `__mora__`）
+  - ブックマーク元キャラ: `BookmarkCharacterSource` を各エントリに保存、ホームでアイコン表示
+  - 旧ブックマーク（キャラ情報なし）は再登録までアイコン非表示
+  - 範囲計算: `src/lib/material-requirements.ts`
+- **変更ファイル（主要）:**
+  - `src/types/bookmark.ts`, `src/lib/bookmark-*.ts`, `src/lib/material-requirements.ts`
+  - `src/contexts/MaterialBookmarkContext.tsx`
+  - `src/components/bookmark/*`, `src/components/home/HomeWithBookmarks.tsx`
+  - `DetailEditor`, `WeaponSection`, `TalentSection`, 素材パネル, スライダー類
+- **未完了 / 次回:** git commit 未実施（ユーザー依頼時のみ）
+
+---
+
+## 2026-07-07 頃 — DB 同期・突破天賦素材・差分同期
+
+- **目的:** 突破/天賦/EXP データを API から DB 同期し、UI は repository 経由で参照
+- **決定事項:**
+  - スキーマ: `CharacterUpgrade`, `WeaponUpgrade`, `LevelExpSegment`, `Material.expValue/expTarget`
+  - 同期: `sync-upgrade.ts` + `amber-upgrade.ts`、デフォルトは差分同期（`fullUpgrade: false`）
+  - `sync-utils.ts` の `idsForNotIn()` で空 `notIn: []` Prisma エラーを回避
+  - スキル説明等リッチデータは on-demand API（24h キャッシュ）
+- **変更ファイル（主要）:**
+  - `prisma/schema.prisma`, migrations
+  - `src/lib/sync-upgrade.ts`, `src/lib/repository/upgrade-data.ts`
+  - `SyncSection.tsx`, `SyncButton.tsx`
+  - `AI_AGENT_RULES.md`, `ARCHITECTURE.md`, `DEVELOPMENT_GUIDE.md`
+- **未完了 / 次回:** 本番 PostgreSQL 移行は未着手
+
+---
+
+## 2026-07-07 頃 — Next.js アプリ基盤
+
+- **目的:** 静的 HTML から Next.js 16 + Prisma + Project Amber API 構成へ移行
+- **決定事項:**
+  - 外部 API: Project Amber (`https://gi.yatta.moe`)
+  - ユーザー進捗: cookie `gb_user_id` + Server Actions (`saveProgress`)
+  - レイヤー: `api → sync → Prisma → repository → pages → Client`
+  - PowerShell では `&&` ではなく `;` を使用
+- **未完了 / 次回:** Lv.90–100 / 天賦 Lv.11–13 は UI 余白のみ（未実装）

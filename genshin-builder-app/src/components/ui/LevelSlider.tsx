@@ -14,12 +14,14 @@ export default function LevelSlider({
   label,
   id,
   showFutureZone = true,
+  headerExtra,
 }: {
   value: number;
   onChange: (level: number) => void;
   label: string;
   id: string;
   showFutureZone?: boolean;
+  headerExtra?: React.ReactNode;
 }) {
   return (
     <MarkSlider
@@ -33,6 +35,7 @@ export default function LevelSlider({
       showFutureZone={showFutureZone}
       displayEndMark={100}
       futureHint="Lv.90〜100 は将来対応予定（未実装）"
+      headerExtra={headerExtra}
     />
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { levelToVisualRatio, snapToMarks } from "@/lib/level-progression";
 
 /**
@@ -19,6 +19,7 @@ export default function MarkSlider({
   futureHint,
   displayEndMark,
   compactTicks = false,
+  headerExtra,
 }: {
   marks: readonly number[];
   max: number;
@@ -33,6 +34,8 @@ export default function MarkSlider({
   displayEndMark?: number;
   /** 天賦など目盛りが多い場合にラベルを間引く */
   compactTicks?: boolean;
+  /** Lv表記横に表示する追加UI（ブックマークボタン等） */
+  headerExtra?: ReactNode;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -84,14 +87,17 @@ export default function MarkSlider({
         <label htmlFor={id} className="text-xs text-gray-400">
           {label}
         </label>
-        <p
-          className={`font-serif text-2xl font-bold tabular-nums transition-all duration-200 ${
-            dragging ? "scale-110 text-accent" : "text-amber-100"
-          }`}
-          aria-live="polite"
-        >
-          Lv.{displayLevel}
-        </p>
+        <div className="flex items-center gap-2">
+          <p
+            className={`font-serif text-2xl font-bold tabular-nums transition-all duration-200 ${
+              dragging ? "scale-110 text-accent" : "text-amber-100"
+            }`}
+            aria-live="polite"
+          >
+            Lv.{displayLevel}
+          </p>
+          {headerExtra}
+        </div>
       </div>
 
       <div

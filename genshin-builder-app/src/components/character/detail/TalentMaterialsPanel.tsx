@@ -1,13 +1,22 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
+import MaterialRowWithBookmark from "@/components/bookmark/MaterialRowWithBookmark";
+import {
+  buildBookmarkEntries,
+  makeItemSourceKey,
+  makeItemSourceLabel,
+} from "@/lib/bookmark-utils";
 import type { MaterialInfo } from "@/lib/repository/materials";
 import {
   getNextTalentRequirements,
   getTalentUpgradeInfos,
   type TalentLevelUpgrade,
 } from "@/lib/talent-progression";
+import { useMaterialBookmarks } from "@/contexts/MaterialBookmarkContext";
+import type { CultivationBookmarkContext } from "@/types/bookmark";
+import { MORA_MATERIAL_ID } from "@/types/bookmark";
 
 function formatMora(value: number): string {
   return value.toLocaleString("ja-JP");
@@ -52,12 +61,16 @@ export default function TalentMaterialsPanel({
   maxLevel,
   upgrades,
   materials,
+  bookmarkContext,
 }: {
   currentLevel: number;
   maxLevel: number;
   upgrades: TalentLevelUpgrade[];
   materials: MaterialInfo[];
+  bookmarkContext?: CultivationBookmarkContext;
 }) {
+  const { toggleEntry, isBookmarked } = useMaterialBookmarks();
+
   const materialMap = useMemo(
     () => new Map(materials.map((m) => [m.id, m])),
     [materials],
@@ -71,6 +84,28 @@ export default function TalentMaterialsPanel({
   const upgradeInfos = useMemo(
     () => getTalentUpgradeInfos(upgrades),
     [upgrades],
+  );
+
+  const makeToggle = useCallback(
+    (
+      materialId: string,
+      name: string,
+      count: number,
+      iconUrl: string | null,
+      isMora = false,
+    ) => {
+      if (!bookmarkContext) return undefined;
+      const sourceKey = makeItemSourceKey(bookmarkContext, "next", materialId);
+      const entry = buildBookmarkEntries(
+        [{ materialId, name, count, iconUrl, isMora }],
+        sourceKey,
+        makeItemSourceLabel(bookmarkContext, name),
+        materials,
+        bookmarkContext.character,
+      )[0];
+      return () => toggleEntry(entry);
+    },
+    [bookmarkContext, materials, toggleEntry],
   );
 
   if (upgrades.length === 0) {
@@ -91,26 +126,70 @@ export default function TalentMaterialsPanel({
           <ul className="mt-2 space-y-1.5">
             {nextStage.materials.map(({ materialId, count }) => {
               const mat = materialMap.get(materialId);
-              return (
+              const name = mat?.name ?? `素材 #${materialId}`;
+              const iconUrl = mat?.iconUrl ?? null;
+              const sourceKey = bookmarkContext
+                ? makeItemSourceKey(bookmarkContext, "next", materialId)
+                : "";
+              return bookmarkContext ? (
+                <MaterialRowWithBookmark
+                  key={materialId}
+                  materialId={materialId}
+                  name={name}
+                  iconUrl={iconUrl}
+                  count={count}
+                  bookmarked={isBookmarked(sourceKey, materialId)}
+                  onToggleBookmark={makeToggle(
+                    materialId,
+                    name,
+                    count,
+                    iconUrl,
+                  )}
+                />
+              ) : (
                 <MaterialRow
                   key={materialId}
-                  name={mat?.name ?? `素材 #${materialId}`}
-                  iconUrl={mat?.iconUrl ?? null}
+                  name={name}
+                  iconUrl={iconUrl}
                   count={count}
                 />
               );
             })}
-            {nextStage.mora > 0 && (
-              <li className="flex items-center gap-2 text-sm text-gray-200">
-                <span className="flex size-7 shrink-0 items-center justify-center rounded bg-[#151d2a] text-sm">
-                  🪙
-                </span>
-                <span className="flex-1">モラ</span>
-                <span className="tabular-nums text-accent">
-                  ×{formatMora(nextStage.mora)}
-                </span>
-              </li>
-            )}
+            {nextStage.mora > 0 &&
+              (bookmarkContext ? (
+                <MaterialRowWithBookmark
+                  materialId={MORA_MATERIAL_ID}
+                  name="モラ"
+                  iconUrl={null}
+                  count={nextStage.mora}
+                  isMora
+                  bookmarked={isBookmarked(
+                    makeItemSourceKey(
+                      bookmarkContext,
+                      "next",
+                      MORA_MATERIAL_ID,
+                    ),
+                    MORA_MATERIAL_ID,
+                  )}
+                  onToggleBookmark={makeToggle(
+                    MORA_MATERIAL_ID,
+                    "モラ",
+                    nextStage.mora,
+                    null,
+                    true,
+                  )}
+                />
+              ) : (
+                <li className="flex items-center gap-2 text-sm text-gray-200">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded bg-[#151d2a] text-sm">
+                    🪙
+                  </span>
+                  <span className="flex-1">モラ</span>
+                  <span className="tabular-nums text-accent">
+                    ×{formatMora(nextStage.mora)}
+                  </span>
+                </li>
+              ))}
             {nextStage.materials.length === 0 && nextStage.mora === 0 && (
               <li className="text-xs text-gray-500">追加素材は不要です</li>
             )}

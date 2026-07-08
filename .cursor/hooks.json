@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": "node .cursor/hooks/mark-memory-pending.mjs",
+        "matcher": "Write"
+      }
+    ],
+    "stop": [
+      {
+        "command": "node .cursor/hooks/stop-memory-save.mjs",
+        "loop_limit": 2
+      }
+    ]
+  }
+}
