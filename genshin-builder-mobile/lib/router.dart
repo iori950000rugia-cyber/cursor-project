@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'features/bootstrap/initial_sync_screen.dart';
 import 'features/bookmarks/bookmarks_screen.dart';
 import 'features/characters/character_detail_screen.dart';
 import 'features/characters/character_list_screen.dart';
@@ -9,8 +10,12 @@ import 'features/home/home_screen.dart';
 import 'features/settings/settings_screen.dart';
 
 final appRouter = GoRouter(
-  initialLocation: '/',
+  initialLocation: '/bootstrap',
   routes: [
+    GoRoute(
+      path: '/bootstrap',
+      builder: (context, state) => const InitialSyncScreen(),
+    ),
     ShellRoute(
       builder: (context, state, child) => AppShell(child: child),
       routes: [
