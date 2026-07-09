@@ -1,0 +1,43 @@
+{
+  "profiles": [
+    {
+      "characterId": "10000052",
+      "name": "雷電将軍",
+      "weights": {
+        "critRate": 2,
+        "critDamage": 1,
+        "atkPercent": 0,
+        "hpPercent": 0,
+        "defPercent": 0,
+        "elementalMastery": 0,
+        "energyRecharge": 1
+      }
+    },
+    {
+      "characterId": "10000046",
+      "name": "胡桃",
+      "weights": {
+        "critRate": 2,
+        "critDamage": 1,
+        "atkPercent": 0,
+        "hpPercent": 1,
+        "defPercent": 0,
+        "elementalMastery": 0,
+        "energyRecharge": 0
+      }
+    },
+    {
+      "characterId": "10000042",
+      "name": "刻晴",
+      "weights": {
+        "critRate": 2,
+        "critDamage": 1,
+        "atkPercent": 1,
+        "hpPercent": 0,
+        "defPercent": 0,
+        "elementalMastery": 0,
+        "energyRecharge": 0
+      }
+    }
+  ]
+}

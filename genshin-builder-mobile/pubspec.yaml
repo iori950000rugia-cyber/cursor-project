@@ -37,3 +37,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/config/artifact_score_weights.json
