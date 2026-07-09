@@ -1,0 +1,37 @@
+name: Genshin Mobile Release (Example)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: genshin-builder-mobile
+    env:
+      # GitHub Repository Secrets に設定:
+      # ARTIFACT_SCORE_WEIGHTS_URL=https://your-domain/path/artifact_score_weights.json
+      ARTIFACT_SCORE_WEIGHTS_URL: ${{ secrets.ARTIFACT_SCORE_WEIGHTS_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Flutter Pub Get
+        run: flutter pub get
+
+      - name: Build Android AppBundle
+        run: >
+          flutter build appbundle --release
+          --dart-define=ARTIFACT_SCORE_WEIGHTS_URL=${ARTIFACT_SCORE_WEIGHTS_URL}
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: genshin-mobile-aab
+          path: genshin-builder-mobile/build/app/outputs/bundle/release/*.aab
