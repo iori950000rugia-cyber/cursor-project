@@ -6,58 +6,21 @@ enum ArtifactScoreType { atk, hp, def, recharge, em }
 
 const _defaultScoreType = ArtifactScoreType.atk;
 
-const _scoreTypeByName = <String, ArtifactScoreType>{
-  // HP参照
-  '胡桃': ArtifactScoreType.hp,
-  '鍾離': ArtifactScoreType.hp,
-  '珊瑚宮心海': ArtifactScoreType.hp,
-  '夜蘭': ArtifactScoreType.hp,
-  'ニィロウ': ArtifactScoreType.hp,
-  'ディシア': ArtifactScoreType.hp,
-  '白朮': ArtifactScoreType.hp,
-  'フリーナ': ArtifactScoreType.hp,
-  'ヌヴィレット': ArtifactScoreType.hp,
-  'シグウィン': ArtifactScoreType.hp,
-  'ムアラニ': ArtifactScoreType.hp,
-  'コロンビーナ': ArtifactScoreType.hp,
-
-  // 防御参照
-  'ノエル': ArtifactScoreType.def,
-  '荒瀧一斗': ArtifactScoreType.def,
-  'ゴロー': ArtifactScoreType.def,
-  '雲菫': ArtifactScoreType.def,
-  '千織': ArtifactScoreType.def,
-  'シロネン': ArtifactScoreType.def,
-  'カチーナ': ArtifactScoreType.def,
-
-  // 元素熟知参照
-  '楓原万葉': ArtifactScoreType.em,
-  'スクロース': ArtifactScoreType.em,
-  'ナヒーダ': ArtifactScoreType.em,
-  '綺良々': ArtifactScoreType.em,
-  'ヨォーヨ': ArtifactScoreType.em,
-  'コレイ': ArtifactScoreType.em,
-  'ティナリ': ArtifactScoreType.em,
-  '久岐忍': ArtifactScoreType.em,
-  'ラウマ': ArtifactScoreType.em,
-  'アイノ': ArtifactScoreType.em,
-
-  // 元素チャージ参照
-  '雷電将軍': ArtifactScoreType.recharge,
-};
-
 bool isGenericMasterScoreType(String? raw) {
   final normalized = raw?.trim().toLowerCase();
   return normalized == null || normalized.isEmpty || normalized == 'atk';
 }
 
-ArtifactScoreType resolveArtifactScoreType(MasterCharacter character) {
+ArtifactScoreType resolveArtifactScoreType(
+  MasterCharacter character, {
+  Map<String, ArtifactScoreType>? nameOverrides,
+}) {
   final fromDb = artifactScoreTypeFromString(character.scoreType);
   if (fromDb != null && !isGenericMasterScoreType(character.scoreType)) {
     return fromDb;
   }
 
-  final fromName = _scoreTypeByName[character.name];
+  final fromName = nameOverrides?[character.name];
   if (fromName != null) return fromName;
 
   return fromDb ?? _defaultScoreType;
@@ -65,8 +28,13 @@ ArtifactScoreType resolveArtifactScoreType(MasterCharacter character) {
 
 /// 同期時に Amber の specialProp と名前から scoreType を推定する。
 /// Web版 `inferScoreType` と同等（recharge 対応を追加）。
-ArtifactScoreType inferScoreType(String? specialProp, String name) {
-  final fromName = _scoreTypeByName[name];
+/// [nameOverrides] は `artifact_score_type_overrides.json` を読み込んだマップ。
+ArtifactScoreType inferScoreType(
+  String? specialProp,
+  String name, {
+  Map<String, ArtifactScoreType>? nameOverrides,
+}) {
+  final fromName = nameOverrides?[name];
   if (fromName != null) return fromName;
 
   return switch (specialProp) {

@@ -1,3 +1,4 @@
+import '../data/artifact_score/artifact_score_type_override_registry.dart';
 import '../data/artifact_score/artifact_score_weight.dart';
 import '../data/artifact_score/artifact_score_weight_repository.dart';
 import '../data/models/master_models.dart';
@@ -27,6 +28,10 @@ class ArtifactScoreResolver {
     ArtifactScoreType? userScoreType,
     bool userScoreTypeIsSet = false,
   }) async {
+    final overrides = ArtifactScoreTypeOverrideRegistry.instance;
+    await overrides.ensureLoaded();
+    final nameOverrides = overrides.byName;
+
     if (userScoreTypeIsSet && userScoreType != null) {
       return ArtifactScoreSettings(
         scoreType: userScoreType,
@@ -38,7 +43,10 @@ class ArtifactScoreResolver {
     if (profile != null) {
       final inferredType =
           inferArtifactScoreTypeFromWeights(profile.weights) ??
-              resolveArtifactScoreType(character);
+              resolveArtifactScoreType(
+                character,
+                nameOverrides: nameOverrides,
+              );
       return ArtifactScoreSettings(
         scoreType: inferredType,
         weights: profile.weights,
@@ -47,7 +55,10 @@ class ArtifactScoreResolver {
       );
     }
 
-    final scoreType = resolveArtifactScoreType(character);
+    final scoreType = resolveArtifactScoreType(
+      character,
+      nameOverrides: nameOverrides,
+    );
     return ArtifactScoreSettings(
       scoreType: scoreType,
       weights: scoreWeightsForType(scoreType),
