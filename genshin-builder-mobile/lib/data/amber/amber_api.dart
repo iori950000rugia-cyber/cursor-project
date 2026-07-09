@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../artifact_score/artifact_score_type_override_registry.dart';
 import '../models/master_models.dart';
 import '../../domain/artifact_score.dart';
 import 'amber_constants.dart';
@@ -43,6 +44,10 @@ class AmberApi {
   }
 
   Future<List<MasterCharacter>> fetchCharacters() async {
+    final overrideRegistry = ArtifactScoreTypeOverrideRegistry.instance;
+    await overrideRegistry.ensureLoaded();
+    final nameOverrides = overrideRegistry.byName;
+
     final items = await _fetchItems('/avatar');
     final characters = <MasterCharacter>[];
 
@@ -78,6 +83,7 @@ class AmberApi {
             inferScoreType(
               avatar['specialProp'] as String?,
               displayName,
+              nameOverrides: nameOverrides,
             ),
           ),
         ),
