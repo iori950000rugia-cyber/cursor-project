@@ -1,0 +1,173 @@
+{
+  "overrides": [
+    {
+      "characterId": "10000046",
+      "name": "胡桃",
+      "scoreType": "hp",
+      "note": "specialProp=FIGHT_PROP_CRITICAL_HURT"
+    },
+    {
+      "characterId": "10000030",
+      "name": "鍾離",
+      "scoreType": "hp",
+      "note": "specialProp=FIGHT_PROP_ROCK_ADD_HURT"
+    },
+    {
+      "characterId": "10000054",
+      "name": "珊瑚宮心海",
+      "scoreType": "hp",
+      "note": "specialProp=FIGHT_PROP_WATER_ADD_HURT"
+    },
+    {
+      "characterId": "10000060",
+      "name": "夜蘭",
+      "scoreType": "hp",
+      "note": "specialProp=FIGHT_PROP_CRITICAL"
+    },
+    {
+      "characterId": "10000070",
+      "name": "ニィロウ",
+      "scoreType": "hp"
+    },
+    {
+      "characterId": "10000079",
+      "name": "ディシア",
+      "scoreType": "hp"
+    },
+    {
+      "characterId": "10000082",
+      "name": "白朮",
+      "scoreType": "hp"
+    },
+    {
+      "characterId": "10000083",
+      "name": "フリーナ",
+      "scoreType": "hp",
+      "note": "specialProp=FIGHT_PROP_CRITICAL"
+    },
+    {
+      "characterId": "10000086",
+      "name": "ヌヴィレット",
+      "scoreType": "hp",
+      "note": "specialProp=FIGHT_PROP_CRITICAL_HURT"
+    },
+    {
+      "characterId": "10000100",
+      "name": "シグウィン",
+      "scoreType": "hp"
+    },
+    {
+      "characterId": "10000102",
+      "name": "ムアラニ",
+      "scoreType": "hp",
+      "note": "specialProp=FIGHT_PROP_CRITICAL"
+    },
+    {
+      "characterId": "10000125",
+      "name": "コロンビーナ",
+      "scoreType": "hp",
+      "note": "specialProp=FIGHT_PROP_CRITICAL"
+    },
+    {
+      "characterId": "10000003",
+      "name": "ノエル",
+      "scoreType": "def"
+    },
+    {
+      "characterId": "10000057",
+      "name": "荒瀧一斗",
+      "scoreType": "def",
+      "note": "specialProp=FIGHT_PROP_CRITICAL"
+    },
+    {
+      "characterId": "10000055",
+      "name": "ゴロー",
+      "scoreType": "def",
+      "note": "specialProp=FIGHT_PROP_ROCK_ADD_HURT"
+    },
+    {
+      "characterId": "10000064",
+      "name": "雲菫",
+      "scoreType": "def",
+      "note": "specialProp=FIGHT_PROP_CHARGE_EFFICIENCY"
+    },
+    {
+      "characterId": "10000093",
+      "name": "千織",
+      "scoreType": "def",
+      "note": "specialProp=FIGHT_PROP_CRITICAL"
+    },
+    {
+      "characterId": "10000110",
+      "name": "シロネン",
+      "scoreType": "def"
+    },
+    {
+      "characterId": "10000112",
+      "name": "カチーナ",
+      "scoreType": "def",
+      "note": "specialProp=FIGHT_PROP_ROCK_ADD_HURT"
+    },
+    {
+      "characterId": "10000047",
+      "name": "楓原万葉",
+      "scoreType": "em"
+    },
+    {
+      "characterId": "10000043",
+      "name": "スクロース",
+      "scoreType": "em",
+      "note": "specialProp=FIGHT_PROP_WIND_ADD_HURT"
+    },
+    {
+      "characterId": "10000073",
+      "name": "ナヒーダ",
+      "scoreType": "em"
+    },
+    {
+      "characterId": "10000053",
+      "name": "綺良々",
+      "scoreType": "em",
+      "note": "specialProp=FIGHT_PROP_HP_PERCENT"
+    },
+    {
+      "characterId": "10000077",
+      "name": "ヨォーヨ",
+      "scoreType": "em",
+      "note": "specialProp=FIGHT_PROP_HP_PERCENT"
+    },
+    {
+      "characterId": "10000067",
+      "name": "コレイ",
+      "scoreType": "em",
+      "note": "specialProp=FIGHT_PROP_ATTACK_PERCENT"
+    },
+    {
+      "characterId": "10000069",
+      "name": "ティナリ",
+      "scoreType": "em",
+      "note": "specialProp=FIGHT_PROP_GRASS_ADD_HURT"
+    },
+    {
+      "characterId": "10000065",
+      "name": "久岐忍",
+      "scoreType": "em",
+      "note": "specialProp=FIGHT_PROP_HP_PERCENT"
+    },
+    {
+      "characterId": "10000122",
+      "name": "ラウマ",
+      "scoreType": "em"
+    },
+    {
+      "characterId": "10000124",
+      "name": "アイノ",
+      "scoreType": "em"
+    },
+    {
+      "characterId": "10000052",
+      "name": "雷電将軍",
+      "scoreType": "recharge"
+    }
+  ]
+}

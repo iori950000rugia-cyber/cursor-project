@@ -39,3 +39,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/config/artifact_score_weights.json
+    - assets/config/artifact_score_type_overrides.json
