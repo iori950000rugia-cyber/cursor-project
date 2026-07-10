@@ -7,7 +7,7 @@ import 'package:genshin_builder_mobile/data/artifact_score/artifact_score_weight
 import 'package:genshin_builder_mobile/data/artifact_score/artifact_score_weight_source.dart';
 import 'package:genshin_builder_mobile/data/models/master_models.dart';
 import 'package:genshin_builder_mobile/domain/artifact_score.dart';
-import 'package:genshin_builder_mobile/domain/artifact_score_resolver.dart';
+import 'package:genshin_builder_mobile/data/artifact_score/artifact_score_resolver.dart';
 
 /// 全キャラの取得基準を Amber API と照合する。
 /// `dart run tool/verify_all_score_types.dart`

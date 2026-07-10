@@ -38,8 +38,8 @@ flowchart TB
     Secure[secure/ flutter_secure_storage Phase2]
   end
 
-  subgraph platform [platform/ Phase2]
-    Pigeon[pigeon HoyolabIntegrationApi]
+  subgraph platform [platform/]
+    Channel[MethodChannel Cookie fallback]
     WebView[WebView HoYoLAB login]
   end
 
@@ -49,7 +49,7 @@ flowchart TB
 
   features --> providers --> repos
   repos --> data
-  HoyolabLogin --> WebView --> Pigeon --> Secure
+  HoyolabLogin --> WebView --> Channel --> Secure
   HoyolabRepo --> Hoyolab
   Hoyolab --> Secure
   repos --> domain
@@ -157,10 +157,9 @@ genshin-builder-mobile/
 
 ## 4. データ層
 
-### 4.1 ランタイム DB（sqflite）と Drift 移行準備
+### 4.1 ランタイム DB（Drift）
 
-**現状**: ランタイムは `sqflite_database.dart`（`app_database.dart` から export）。  
-**Drift**: `lib/data/db/drift/` に tables / daos 定義済み。codegen 後に切替予定。  
+**現状**: ランタイムは Drift（`lib/data/db/app_database_facade.dart` → `drift/app_database.dart`）。  
 共有: `lib/data/db/upgrade_serde.dart` で突破 JSON の encode/decode を一元化。
 
 | テーブル | 用途 |
@@ -188,7 +187,7 @@ sequenceDiagram
   participant User
   participant LoginUI as hoyolab_login_screen
   participant WebView as HoYoLAB WebView
-  participant Pigeon as HoyolabIntegrationApi
+  participant Cookie as WebViewCookieManager / MethodChannel
   participant Secure as secure_storage
   participant API as hoyolab_api
   participant Home as home_screen
@@ -196,8 +195,8 @@ sequenceDiagram
   User->>LoginUI: ログイン開始
   LoginUI->>WebView: act.hoyolab.com 表示
   User->>WebView: 手動ログイン
-  LoginUI->>Pigeon: fetchCookie()
-  Pigeon-->>LoginUI: Cookie 文字列
+  LoginUI->>Cookie: Cookie 取得
+  Cookie-->>LoginUI: Cookie 文字列
   LoginUI->>Secure: cookie, ltuid 保存
   User->>Home: 樹脂確認
   Home->>API: getDailyNote(uid, region)

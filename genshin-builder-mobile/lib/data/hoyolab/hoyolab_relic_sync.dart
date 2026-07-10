@@ -1,7 +1,7 @@
-import '../data/hoyolab/models/game_record.dart';
-import 'artifact_config.dart';
-import 'hoyolab_stat_normalize.dart';
-import 'models/artifact_state.dart';
+import '../../domain/artifact_config.dart';
+import '../../domain/hoyolab_stat_normalize.dart';
+import '../../domain/models/artifact_state.dart';
+import 'models/game_record.dart';
 
 double parseStatValue(String raw) {
   final cleaned = raw.replaceAll('%', '').trim();

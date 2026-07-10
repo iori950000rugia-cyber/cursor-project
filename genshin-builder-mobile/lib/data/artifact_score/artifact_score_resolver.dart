@@ -1,8 +1,8 @@
-import '../data/artifact_score/artifact_score_type_override_registry.dart';
-import '../data/artifact_score/artifact_score_weight.dart';
-import '../data/artifact_score/artifact_score_weight_repository.dart';
-import '../data/models/master_models.dart';
-import 'artifact_score.dart';
+import '../../domain/artifact_score.dart';
+import '../../domain/artifact_score_weights.dart';
+import '../../domain/models/master_models.dart';
+import 'artifact_score_type_override_registry.dart';
+import 'artifact_score_weight_repository.dart';
 
 /// 画面表示と計算で共有する聖遺物スコア設定。
 class ArtifactScoreSettings {

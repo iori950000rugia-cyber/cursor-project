@@ -1,5 +1,5 @@
-import '../data/artifact_score/artifact_score_weight.dart';
-import '../data/models/master_models.dart';
+import 'artifact_score_weights.dart';
+import 'models/master_models.dart';
 import 'models/artifact_state.dart';
 
 enum ArtifactScoreType { atk, hp, def, recharge, em }

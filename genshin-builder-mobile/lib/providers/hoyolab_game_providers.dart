@@ -71,9 +71,18 @@ final sortedCharacterEntriesProvider =
   final ownedMap = await ref.watch(hoyolabOwnedCharacterMapProvider.future);
   final sortSettings = ref.watch(characterListSortSettingsProvider).valueOrNull ??
       const CharacterListSortSettings();
+  final sortOwned = <String, OwnedCharacterSortInfo>{
+    for (final e in ownedMap.entries)
+      e.key: OwnedCharacterSortInfo(
+        level: e.value.level,
+        friendship: e.value.friendship,
+        constellation: e.value.constellation,
+        obtainedAt: e.value.obtainedAt,
+      ),
+  };
   return buildCharacterListEntries(
     characters: characters,
-    ownedMap: ownedMap,
+    ownedMap: sortOwned,
     settings: sortSettings,
   );
 });

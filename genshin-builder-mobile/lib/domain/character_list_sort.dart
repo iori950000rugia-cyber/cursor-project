@@ -1,6 +1,19 @@
-import '../data/models/master_models.dart';
-import '../data/hoyolab/models/game_record.dart';
-import '../data/hoyolab/owned_characters_result.dart';
+import 'models/master_models.dart';
+
+/// 一覧ソート用の所持キャラ情報（HoYoLAB DTO に依存しない）
+class OwnedCharacterSortInfo {
+  const OwnedCharacterSortInfo({
+    required this.level,
+    this.friendship = 0,
+    this.constellation = 0,
+    this.obtainedAt,
+  });
+
+  final int level;
+  final int friendship;
+  final int constellation;
+  final DateTime? obtainedAt;
+}
 
 /// キャラクター一覧の並び替えモード
 enum CharacterListSortMode {
@@ -54,6 +67,9 @@ class CharacterListSortSettings {
   final CharacterListSortMode mode;
   final bool groupByOwnership;
 
+  static const storageKeyMode = 'character_list_sort_mode';
+  static const storageKeyGroup = 'character_list_group_by_ownership';
+
   CharacterListSortSettings copyWith({
     CharacterListSortMode? mode,
     bool? groupByOwnership,
@@ -62,9 +78,6 @@ class CharacterListSortSettings {
         mode: mode ?? this.mode,
         groupByOwnership: groupByOwnership ?? this.groupByOwnership,
       );
-
-  static const storageKeyMode = 'character_list_sort_mode';
-  static const storageKeyGroup = 'character_list_group_by_owned';
 }
 
 class CharacterListEntry {
@@ -76,7 +89,18 @@ class CharacterListEntry {
 
   final MasterCharacter character;
   final bool isOwned;
-  final HoyolabOwnedCharacter? owned;
+  final OwnedCharacterSortInfo? owned;
+}
+
+/// マスター ID と所持マップの照合（旅人の元素 suffix 対応）
+OwnedCharacterSortInfo? lookupOwnedSortInfo(
+  Map<String, OwnedCharacterSortInfo> ownedMap,
+  String masterCharacterId,
+) {
+  final direct = ownedMap[masterCharacterId];
+  if (direct != null) return direct;
+  final baseId = masterCharacterId.split('-').first;
+  return ownedMap[baseId];
 }
 
 const _elementOrder = [
@@ -91,12 +115,12 @@ const _elementOrder = [
 
 List<CharacterListEntry> buildCharacterListEntries({
   required List<MasterCharacter> characters,
-  required Map<String, HoyolabOwnedCharacter> ownedMap,
+  required Map<String, OwnedCharacterSortInfo> ownedMap,
   CharacterListSortSettings settings = const CharacterListSortSettings(),
 }) {
   final entries = characters
       .map((character) {
-        final ownedInfo = lookupOwnedCharacter(ownedMap, character.id);
+        final ownedInfo = lookupOwnedSortInfo(ownedMap, character.id);
         return CharacterListEntry(
           character: character,
           isOwned: ownedInfo != null,
@@ -174,9 +198,9 @@ int _compareEntries(
         tieBreaker: a.character.name.compareTo(b.character.name),
       );
     case CharacterListSortMode.obtainedDesc:
-      return _compareObtainedDesc(a, b);
+      return _compareObtained(a, b, descending: true);
     case CharacterListSortMode.obtainedAsc:
-      return _compareObtainedAsc(a, b);
+      return _compareObtained(a, b, descending: false);
     case CharacterListSortMode.constellationDesc:
       return _compareOwnedIntDesc(
         a,
@@ -194,58 +218,35 @@ int _compareEntries(
   }
 }
 
-int _compareOwnedDefault(CharacterListEntry a, CharacterListEntry b) {
-  final oa = a.owned!;
-  final ob = b.owned!;
-
-  final dateCmp = _compareObtainedDateDesc(oa.obtainedAt, ob.obtainedAt);
-  if (dateCmp != 0) return dateCmp;
-
-  final levelCmp = ob.level.compareTo(oa.level);
-  if (levelCmp != 0) return levelCmp;
-
-  return a.character.name.compareTo(b.character.name);
-}
-
-int _compareObtainedDateDesc(DateTime? aDate, DateTime? bDate) {
-  if (aDate != null && bDate != null) {
-    return bDate.compareTo(aDate);
-  }
-  if (aDate != null) return -1;
-  if (bDate != null) return 1;
-  return 0;
-}
-
-int _compareObtainedDateAsc(DateTime? aDate, DateTime? bDate) {
-  if (aDate != null && bDate != null) {
-    return aDate.compareTo(bDate);
-  }
-  if (aDate != null) return -1;
-  if (bDate != null) return 1;
-  return 0;
-}
-
 int _compareElement(CharacterListEntry a, CharacterListEntry b) {
-  final aIndex = _elementOrder.indexOf(a.character.element);
-  final bIndex = _elementOrder.indexOf(b.character.element);
-  final safeA = aIndex >= 0 ? aIndex : _elementOrder.length;
-  final safeB = bIndex >= 0 ? bIndex : _elementOrder.length;
-  final cmp = safeA.compareTo(safeB);
+  final ai = _elementOrder.indexOf(a.character.element);
+  final bi = _elementOrder.indexOf(b.character.element);
+  final aOrder = ai < 0 ? 999 : ai;
+  final bOrder = bi < 0 ? 999 : bi;
+  final cmp = aOrder.compareTo(bOrder);
   return cmp != 0 ? cmp : a.character.name.compareTo(b.character.name);
 }
 
-int _compareObtainedDesc(CharacterListEntry a, CharacterListEntry b) {
+int _compareObtained(
+  CharacterListEntry a,
+  CharacterListEntry b, {
+  required bool descending,
+}) {
   final ownedCmp = _compareOwnedFirst(a, b);
   if (ownedCmp != 0) return ownedCmp;
-
-  final dateCmp =
-      _compareObtainedDateDesc(a.owned?.obtainedAt, b.owned?.obtainedAt);
-  if (dateCmp != 0) return dateCmp;
-
-  return a.character.name.compareTo(b.character.name);
+  final cmp = _compareObtainedDateAsc(a.owned?.obtainedAt, b.owned?.obtainedAt);
+  if (cmp == 0) return a.character.name.compareTo(b.character.name);
+  return descending ? -cmp : cmp;
 }
 
-int _compareObtainedAsc(CharacterListEntry a, CharacterListEntry b) {
+int _compareObtainedDateAsc(DateTime? a, DateTime? b) {
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+  return a.compareTo(b);
+}
+
+int _compareOwnedDefault(CharacterListEntry a, CharacterListEntry b) {
   final ownedCmp = _compareOwnedFirst(a, b);
   if (ownedCmp != 0) return ownedCmp;
 
@@ -265,7 +266,7 @@ int _compareOwnedFirst(CharacterListEntry a, CharacterListEntry b) {
 int _compareOwnedIntDesc(
   CharacterListEntry a,
   CharacterListEntry b,
-  int Function(HoyolabOwnedCharacter owned) selector, {
+  int Function(OwnedCharacterSortInfo owned) selector, {
   required int tieBreaker,
 }) {
   final ownedCmp = _compareOwnedFirst(a, b);
@@ -280,7 +281,7 @@ int _compareOwnedIntDesc(
 int _compareOwnedIntAsc(
   CharacterListEntry a,
   CharacterListEntry b,
-  int Function(HoyolabOwnedCharacter owned) selector, {
+  int Function(OwnedCharacterSortInfo owned) selector, {
   required int tieBreaker,
 }) {
   final ownedCmp = _compareOwnedFirst(a, b);

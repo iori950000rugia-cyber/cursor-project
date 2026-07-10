@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:genshin_builder_mobile/data/hoyolab/models/game_record.dart';
 import 'package:genshin_builder_mobile/domain/artifact_config.dart';
-import 'package:genshin_builder_mobile/domain/hoyolab_relic_sync.dart';
+import 'package:genshin_builder_mobile/data/hoyolab/hoyolab_relic_sync.dart';
 import 'package:genshin_builder_mobile/domain/hoyolab_stat_normalize.dart';
 import 'package:genshin_builder_mobile/domain/models/artifact_state.dart';
 
