@@ -16,23 +16,31 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await params;
-  const [detail, upgrade] = await Promise.all([
-    fetchWeaponDetail(id),
-    getWeaponUpgrade(id),
-  ]);
+  try {
+    const { id } = await params;
+    const [detail, upgrade] = await Promise.all([
+      fetchWeaponDetail(id),
+      getWeaponUpgrade(id),
+    ]);
 
-  if (!detail) {
+    if (!detail) {
+      return NextResponse.json(
+        { message: "武器情報を取得できませんでした。" },
+        { status: 404 },
+      );
+    }
+    return NextResponse.json({
+      ...detail,
+      promotes: mergePromotesWithApiStats(
+        upgrade?.promotes ?? [],
+        detail.promotes ?? [],
+      ),
+    });
+  } catch (error) {
+    console.error("武器詳細の取得に失敗しました:", error);
     return NextResponse.json(
-      { message: "武器情報を取得できませんでした。" },
-      { status: 404 },
+      { message: "武器情報の取得に失敗しました。時間をおいて再度お試しください。" },
+      { status: 500 },
     );
   }
-  return NextResponse.json({
-    ...detail,
-    promotes: mergePromotesWithApiStats(
-      upgrade?.promotes ?? [],
-      detail.promotes ?? [],
-    ),
-  });
 }

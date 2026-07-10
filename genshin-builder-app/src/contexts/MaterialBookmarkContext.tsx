@@ -4,21 +4,21 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useState,
   type ReactNode,
 } from "react";
 import {
   aggregateBookmarkEntries,
-  loadBookmarkEntries,
+  isMaterialBookmarked,
   removeBookmarkEntry,
   removeBookmarksByMaterialId,
-  saveBookmarkEntries,
   toggleSingleBookmark,
   upsertBookmarkBatch,
-  isMaterialBookmarked,
 } from "@/lib/bookmark-storage";
+import {
+  useBookmarkEntriesMutation,
+  useBookmarkEntriesSnapshot,
+} from "@/lib/bookmark-store";
 import type {
   AggregatedMaterialBookmark,
   MaterialBookmarkEntry,
@@ -39,39 +39,41 @@ const MaterialBookmarkContext =
   createContext<MaterialBookmarkContextValue | null>(null);
 
 export function MaterialBookmarkProvider({ children }: { children: ReactNode }) {
-  const [entries, setEntries] = useState<MaterialBookmarkEntry[]>([]);
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    setEntries(loadBookmarkEntries());
-    setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    saveBookmarkEntries(entries);
-  }, [entries, hydrated]);
+  const entries = useBookmarkEntriesSnapshot();
+  const mutateEntries = useBookmarkEntriesMutation();
 
   const aggregated = useMemo(
     () => aggregateBookmarkEntries(entries),
     [entries],
   );
 
-  const addBatch = useCallback((batch: MaterialBookmarkEntry[]) => {
-    setEntries((prev) => upsertBookmarkBatch(prev, batch));
-  }, []);
+  const addBatch = useCallback(
+    (batch: MaterialBookmarkEntry[]) => {
+      mutateEntries((prev) => upsertBookmarkBatch(prev, batch));
+    },
+    [mutateEntries],
+  );
 
-  const toggleEntry = useCallback((entry: MaterialBookmarkEntry) => {
-    setEntries((prev) => toggleSingleBookmark(prev, entry));
-  }, []);
+  const toggleEntry = useCallback(
+    (entry: MaterialBookmarkEntry) => {
+      mutateEntries((prev) => toggleSingleBookmark(prev, entry));
+    },
+    [mutateEntries],
+  );
 
-  const removeByMaterialId = useCallback((materialId: string) => {
-    setEntries((prev) => removeBookmarksByMaterialId(prev, materialId));
-  }, []);
+  const removeByMaterialId = useCallback(
+    (materialId: string) => {
+      mutateEntries((prev) => removeBookmarksByMaterialId(prev, materialId));
+    },
+    [mutateEntries],
+  );
 
-  const removeEntry = useCallback((id: string) => {
-    setEntries((prev) => removeBookmarkEntry(prev, id));
-  }, []);
+  const removeEntry = useCallback(
+    (id: string) => {
+      mutateEntries((prev) => removeBookmarkEntry(prev, id));
+    },
+    [mutateEntries],
+  );
 
   const isBookmarked = useCallback(
     (sourceKey: string, materialId: string) =>
@@ -79,7 +81,9 @@ export function MaterialBookmarkProvider({ children }: { children: ReactNode }) 
     [entries],
   );
 
-  const clearAll = useCallback(() => setEntries([]), []);
+  const clearAll = useCallback(() => {
+    mutateEntries(() => []);
+  }, [mutateEntries]);
 
   const value = useMemo(
     () => ({

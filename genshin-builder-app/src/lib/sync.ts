@@ -11,9 +11,13 @@
 import { gameDataProvider } from "@/lib/api";
 import { prisma } from "@/lib/db";
 import { syncUpgradeData, type UpgradeSyncOptions } from "@/lib/sync-upgrade";
-import { idsForNotIn } from "@/lib/sync-utils";
+import {
+  forEachBatch,
+  idsForNotIn,
+  UPSERT_BATCH_SIZE,
+} from "@/lib/sync-utils";
 
-export interface SyncOptions extends UpgradeSyncOptions {}
+export type SyncOptions = UpgradeSyncOptions;
 
 export interface SyncResult {
   provider: string;
@@ -57,13 +61,21 @@ export async function syncMasterData(
   ]);
 
   if (charactersRes.status === "fulfilled") {
-    for (const c of charactersRes.value) {
-      await prisma.character.upsert({
-        where: { id: c.id },
-        create: c,
-        update: c,
-      });
-    }
+    await forEachBatch(
+      charactersRes.value,
+      UPSERT_BATCH_SIZE,
+      async (batch) => {
+        await prisma.$transaction(
+          batch.map((c) =>
+            prisma.character.upsert({
+              where: { id: c.id },
+              create: c,
+              update: c,
+            }),
+          ),
+        );
+      },
+    );
     // プロバイダー変更などでAPIに存在しなくなったデータを削除する。
     // ただしユーザーの育成データが紐づいているキャラは残す（データ保護）
     const characterIds = charactersRes.value.map((c) => c.id);
@@ -82,15 +94,28 @@ export async function syncMasterData(
   }
 
   if (weaponsRes.status === "fulfilled") {
-    for (const w of weaponsRes.value) {
-      await prisma.weapon.upsert({
-        where: { id: w.id },
-        create: w,
-        update: w,
-      });
-    }
+    await forEachBatch(weaponsRes.value, UPSERT_BATCH_SIZE, async (batch) => {
+      await prisma.$transaction(
+        batch.map((w) =>
+          prisma.weapon.upsert({
+            where: { id: w.id },
+            create: w,
+            update: w,
+          }),
+        ),
+      );
+    });
     const weaponIds = weaponsRes.value.map((w) => w.id);
-    const excludeWeaponIds = idsForNotIn(weaponIds);
+    // UserProgress.weaponId は FK ではないため、参照中の武器 ID を保護リストに加える
+    const referencedWeaponIds = (
+      await prisma.userProgress.findMany({
+        where: { weaponId: { not: "" } },
+        select: { weaponId: true },
+        distinct: ["weaponId"],
+      })
+    ).map((r) => r.weaponId);
+    const keepWeaponIds = [...new Set([...weaponIds, ...referencedWeaponIds])];
+    const excludeWeaponIds = idsForNotIn(keepWeaponIds);
     if (excludeWeaponIds) {
       await prisma.weapon.deleteMany({
         where: { id: { notIn: excludeWeaponIds } },
@@ -102,13 +127,17 @@ export async function syncMasterData(
   }
 
   if (materialsRes.status === "fulfilled") {
-    for (const m of materialsRes.value) {
-      await prisma.material.upsert({
-        where: { id: m.id },
-        create: m,
-        update: m,
-      });
-    }
+    await forEachBatch(materialsRes.value, UPSERT_BATCH_SIZE, async (batch) => {
+      await prisma.$transaction(
+        batch.map((m) =>
+          prisma.material.upsert({
+            where: { id: m.id },
+            create: m,
+            update: m,
+          }),
+        ),
+      );
+    });
     const materialIds = materialsRes.value.map((m) => m.id);
     const excludeMaterialIds = idsForNotIn(materialIds);
     if (excludeMaterialIds) {

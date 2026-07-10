@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import { levelToVisualRatio, snapToMarks } from "@/lib/level-progression";
 
 /**
@@ -39,15 +39,12 @@ export default function MarkSlider({
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [dragLevel, setDragLevel] = useState<number | null>(null);
   const snapped = snapToMarks(value, marks, max);
-  const [displayLevel, setDisplayLevel] = useState(snapped);
+  const displayLevel = dragLevel ?? snapped;
 
   const fillRatio = levelToVisualRatio(snapped, displayMax);
   const playableEndRatio = levelToVisualRatio(max, displayMax);
-
-  useEffect(() => {
-    setDisplayLevel(snapped);
-  }, [snapped]);
 
   const pickFromClientX = useCallback(
     (clientX: number) => {
@@ -57,7 +54,7 @@ export default function MarkSlider({
       const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
       const rawLevel = Math.round(ratio * displayMax);
       const level = snapToMarks(rawLevel, marks, max);
-      setDisplayLevel(level);
+      setDragLevel(level);
       onChange(level);
     },
     [displayMax, marks, max, onChange],
@@ -74,7 +71,10 @@ export default function MarkSlider({
     pickFromClientX(e.clientX);
   };
 
-  const onPointerUp = () => setDragging(false);
+  const onPointerUp = () => {
+    setDragging(false);
+    setDragLevel(null);
+  };
 
   const markIndex = marks.indexOf(snapped);
   const tickMarks = displayEndMark

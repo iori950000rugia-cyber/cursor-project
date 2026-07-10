@@ -1,0 +1,45 @@
+name: Genshin Web CI
+
+on:
+  push:
+    paths:
+      - "genshin-builder-app/**"
+      - ".github/workflows/genshin-web-ci.yml"
+  pull_request:
+    paths:
+      - "genshin-builder-app/**"
+      - ".github/workflows/genshin-web-ci.yml"
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: genshin-builder-app
+    env:
+      DATABASE_URL: "file:./dev.db"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: genshin-builder-app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build

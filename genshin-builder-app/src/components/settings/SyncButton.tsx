@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { syncMasterDataAction } from "@/lib/actions/sync";
 import type { SyncStatus } from "@/lib/repository/characters";
 
 type SyncState =
@@ -9,22 +10,6 @@ type SyncState =
   | { status: "loading"; mode: "incremental" | "full" }
   | { status: "done"; message: string }
   | { status: "error"; message: string };
-
-interface SyncResponse {
-  ok: boolean;
-  characters?: number;
-  weapons?: number;
-  materials?: number;
-  characterUpgrades?: number;
-  weaponUpgrades?: number;
-  levelExpSegments?: number;
-  expMaterials?: number;
-  upgradeApiCalls?: number;
-  skippedCharacterUpgrades?: number;
-  skippedWeaponUpgrades?: number;
-  errors?: string[];
-  message?: string;
-}
 
 export default function SyncButton({ status }: { status: SyncStatus }) {
   const [state, setState] = useState<SyncState>({ status: "idle" });
@@ -38,14 +23,9 @@ export default function SyncButton({ status }: { status: SyncStatus }) {
   async function handleSync(fullUpgrade: boolean) {
     setState({ status: "loading", mode: fullUpgrade ? "full" : "incremental" });
     try {
-      const res = await fetch("/api/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fullUpgrade }),
-      });
-      const data: SyncResponse = await res.json();
+      const data = await syncMasterDataAction(fullUpgrade);
 
-      if (!res.ok || !data.ok) {
+      if (!data.ok) {
         const detail =
           data.errors?.join(" / ") ?? data.message ?? "不明なエラー";
         setState({ status: "error", message: `同期に失敗しました: ${detail}` });
