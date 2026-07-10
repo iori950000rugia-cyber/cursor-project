@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../data/models/master_models.dart';
+import '../../../data/amber/amber_constants.dart';
 import '../../../domain/bookmark_utils.dart';
 import '../../../domain/level_config.dart';
 import '../../../domain/level_progression.dart';
@@ -11,6 +12,7 @@ import '../../shared/game_icon_image.dart';
 import '../../shared/mark_slider.dart';
 import '../../shared/material_list_tile.dart';
 import '../../shared/max_enhanced_banner.dart';
+import 'weapon_picker_sheet.dart';
 
 /// 武器レベル・突破素材（Web `WeaponSection` / `LevelMaterialsPanel` 相当）
 class WeaponMaterialsSection extends StatelessWidget {
@@ -33,6 +35,10 @@ class WeaponMaterialsSection extends StatelessWidget {
     required this.onToggleRangeBookmark,
     required this.onBookmarkRange,
     this.showTitle = true,
+    this.allowedWeaponType,
+    this.onShowWeaponDetail,
+    this.equippedRefinement = 1,
+    this.character,
   });
 
   final List<MasterWeapon> weapons;
@@ -55,11 +61,48 @@ class WeaponMaterialsSection extends StatelessWidget {
       onBookmarkRange;
   final bool showTitle;
 
+  /// キャラクターの装備可能武器種（例: sword）。指定時はこの種のみ表示
+  final String? allowedWeaponType;
+
+  /// 武器詳細表示（選択変更とは分離）
+  final void Function(MasterWeapon weapon, {required bool isEquipped})?
+      onShowWeaponDetail;
+
+  final int equippedRefinement;
+
+  /// 人気順（使用率）並び替え用
+  final MasterCharacter? character;
+
   bool _isBookmarked(String sourceKey, String materialId) =>
       isMaterialBookmarked(bookmarks, sourceKey, materialId);
 
+  Future<void> _openPicker(
+    BuildContext context,
+    List<MasterWeapon> filtered,
+  ) async {
+    final character = this.character;
+    if (character == null) return;
+    final picked = await showWeaponPickerSheet(
+      context: context,
+      weapons: filtered,
+      selectedWeaponId: selectedWeaponId,
+      equippedWeaponLevel: weaponLevel,
+      character: character,
+      onShowDetail: (weapon) {
+        final equipped = weapon.id == selectedWeaponId;
+        onShowWeaponDetail?.call(weapon, isEquipped: equipped);
+      },
+    );
+    if (picked != null) {
+      onWeaponSelected(picked);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final filtered = allowedWeaponType == null
+        ? weapons
+        : weapons.where((w) => w.weaponType == allowedWeaponType).toList();
     final selected =
         weapons.where((w) => w.id == selectedWeaponId).firstOrNull;
 
@@ -87,6 +130,10 @@ class WeaponMaterialsSection extends StatelessWidget {
     final rangeSourceKey =
         makeRangeSourceKey(bookmarkContext, weaponLevel, targetWeaponLevel);
 
+    final typeLabel = allowedWeaponType == null
+        ? null
+        : (weaponTypeLabelMap[allowedWeaponType!] ?? allowedWeaponType);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -94,49 +141,34 @@ class WeaponMaterialsSection extends StatelessWidget {
           Text('武器', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
         ],
-        DropdownButton<String?>(
-          isExpanded: true,
-          value: selectedWeaponId.isEmpty ? null : selectedWeaponId,
-          hint: const Text('武器を選択'),
-          items: [
-            ...weapons.map(
-              (w) => DropdownMenuItem(
-                value: w.id,
-                child: Row(
-                  children: [
-                    GameIconImage(iconUrl: w.iconUrl, size: 28),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '${w.name} (${w.rarity}★)',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+        if (typeLabel != null) ...[
+          Text(
+            '装備可能: $typeLabelのみ',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
-              ),
-            ),
-          ],
-          selectedItemBuilder: (context) => weapons
-              .map(
-                (w) => Align(
-                  alignment: Alignment.centerLeft,
-                  child: Row(
-                    children: [
-                      GameIconImage(iconUrl: w.iconUrl, size: 24),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          w.name,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
+          ),
+          const SizedBox(height: 8),
+        ],
+        OutlinedButton(
+          onPressed:
+              filtered.isEmpty ? null : () => _openPicker(context, filtered),
+          child: Row(
+            children: [
+              if (selected != null) ...[
+                GameIconImage(iconUrl: selected.iconUrl, size: 28),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    selected.name,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              )
-              .toList(),
-          onChanged: onWeaponSelected,
+              ] else
+                const Expanded(child: Text('武器を選択')),
+              const Icon(Icons.expand_more),
+            ],
+          ),
         ),
         if (selected != null) ...[
           const SizedBox(height: 12),
@@ -153,19 +185,34 @@ class WeaponMaterialsSection extends StatelessWidget {
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     Text(
-                      '${selected.rarity}★ · Lv.$weaponLevel',
+                      '${selected.rarity}★ · Lv.$weaponLevel · 装備中',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant,
                           ),
                     ),
                   ],
                 ),
               ),
+              if (onShowWeaponDetail != null)
+                IconButton(
+                  tooltip: '詳細',
+                  icon: const Icon(Icons.info_outline),
+                  onPressed: () =>
+                      onShowWeaponDetail!(selected, isEquipped: true),
+                ),
             ],
           ),
           const SizedBox(height: 16),
           if (weaponLevel >= levelMax) ...[
             MaxEnhancedBanner(label: '武器レベル', level: weaponLevel),
+            const SizedBox(height: 8),
+            LevelMarkSlider(
+              label: '武器レベル（シミュレーション）',
+              value: weaponLevel,
+              onChanged: onWeaponLevelChanged,
+            ),
           ] else ...[
             LevelMarkSlider(
               label: '武器レベル',

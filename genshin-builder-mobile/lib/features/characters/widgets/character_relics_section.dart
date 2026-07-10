@@ -6,6 +6,7 @@ import '../../../domain/artifact_config.dart';
 import '../../../domain/artifact_score.dart';
 import '../../../domain/models/artifact_state.dart';
 import '../../shared/game_icon_image.dart';
+import 'artifact_detail_sheet.dart';
 
 /// 聖遺物セクション（API: セット・レベル / 手入力: メイン・サブステ）
 class CharacterRelicsSection extends StatelessWidget {
@@ -60,7 +61,40 @@ class CharacterRelicsSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '部位スコア: ${formatArtifactScoreTypeLabel(
+          'セット名・レベル・メインステータスは HoYoLAB 連携時に自動反映されます。サブステは手入力できます。'
+          '各部位を長押しすると詳細を表示します。',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+        const SizedBox(height: 12),
+        ...artifactSlotOrder.map((slot) {
+          final piece = artifacts[slot] ?? createEmptyArtifactPiece();
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _PieceEditor(
+              slot: slot,
+              piece: piece,
+              scoreType: scoreType,
+              weights: weights,
+              onMainStatChanged: (mainStat) =>
+                  _updatePiece(slot, piece.copyWith(mainStat: mainStat)),
+              onSubstatChanged: (index, stat, value) =>
+                  _updateSubstat(slot, index, stat, value),
+              onLongPressDetail: () => showArtifactDetailSheet(
+                context: context,
+                slot: slot,
+                piece: piece,
+                scoreType: scoreType,
+                weights: weights,
+              ),
+            ),
+          );
+        }),
+        // スコア基準は画面最下部に配置する（合計スコアは画面上部のカードで表示）
+        const Divider(height: 24),
+        Text(
+          'スコア基準: ${formatArtifactScoreTypeLabel(
             scoreType: scoreType,
             resolvedScoreType: resolvedScoreType,
             scoreTypeUserSet: scoreTypeUserSet,
@@ -102,30 +136,6 @@ class CharacterRelicsSection extends StatelessWidget {
             if (value != null) onScoreTypeChanged(value);
           },
         ),
-        const SizedBox(height: 4),
-        Text(
-          'セット名・レベル・メインステータスは HoYoLAB 連携時に自動反映されます。サブステは手入力できます。',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-        ),
-        const SizedBox(height: 12),
-        ...artifactSlotOrder.map((slot) {
-          final piece = artifacts[slot] ?? createEmptyArtifactPiece();
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _PieceEditor(
-              slot: slot,
-              piece: piece,
-              scoreType: scoreType,
-              weights: weights,
-              onMainStatChanged: (mainStat) =>
-                  _updatePiece(slot, piece.copyWith(mainStat: mainStat)),
-              onSubstatChanged: (index, stat, value) =>
-                  _updateSubstat(slot, index, stat, value),
-            ),
-          );
-        }),
       ],
     );
   }
@@ -197,6 +207,7 @@ class _PieceEditor extends StatelessWidget {
     this.weights,
     required this.onMainStatChanged,
     required this.onSubstatChanged,
+    required this.onLongPressDetail,
   });
 
   final ArtifactSlotKey slot;
@@ -205,6 +216,7 @@ class _PieceEditor extends StatelessWidget {
   final ArtifactStatWeights? weights;
   final ValueChanged<String> onMainStatChanged;
   final void Function(int index, String stat, double value) onSubstatChanged;
+  final VoidCallback onLongPressDetail;
 
   @override
   Widget build(BuildContext context) {
@@ -214,159 +226,168 @@ class _PieceEditor extends StatelessWidget {
 
     return Card(
       margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                GameIconImage(
-                  iconUrl: piece.iconUrl,
-                  size: 44,
-                  fallback: Text(
-                    slotLabel,
-                    style: Theme.of(context).textTheme.labelMedium,
+      child: InkWell(
+        onLongPress: onLongPressDetail,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  GameIconImage(
+                    iconUrl: piece.iconUrl,
+                    size: 44,
+                    fallback: Text(
+                      slotLabel,
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        slotLabel,
-                        style: Theme.of(context).textTheme.titleSmall,
-                      ),
-                      if (piece.name != null && piece.name!.isNotEmpty)
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          piece.name!,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
-                              ),
+                          slotLabel,
+                          style: Theme.of(context).textTheme.titleSmall,
                         ),
+                        if (piece.name != null && piece.name!.isNotEmpty)
+                          Text(
+                            piece.name!,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (piece.setName.isNotEmpty)
+                    Flexible(
+                      child: Text(
+                        piece.setName,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '+${piece.level}',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  IconButton(
+                    tooltip: '詳細',
+                    icon: const Icon(Icons.info_outline, size: 20),
+                    onPressed: onLongPressDetail,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  'スコア ${_formatScore(_calcPieceScore(piece, scoreType, weights))}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                initialValue: mainStatValue,
+                decoration: InputDecoration(
+                  labelText: 'メインステータス',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  isDense: true,
+                ),
+                items: mainOptions
+                    .map(
+                      (stat) => DropdownMenuItem(
+                        value: stat,
+                        child: Text(stat),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (v) => onMainStatChanged(v ?? ''),
+              ),
+              const SizedBox(height: 8),
+              ...List.generate(4, (i) {
+                final sub = i < piece.substats.length
+                    ? piece.substats[i]
+                    : const ArtifactSubstat(stat: '', value: 0);
+                final subStatValue = _matchingOption(sub.stat, subStatOptions);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          initialValue: subStatValue,
+                          decoration: InputDecoration(
+                            labelText: 'サブ${i + 1}',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            isDense: true,
+                          ),
+                          items: subStatOptions
+                              .map(
+                                (stat) => DropdownMenuItem(
+                                  value: stat,
+                                  child: Text(stat),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (v) =>
+                              onSubstatChanged(i, v ?? '', sub.value),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextFormField(
+                          initialValue:
+                              sub.stat.isEmpty ? '' : _formatValue(sub.value),
+                          enabled: sub.stat.isNotEmpty,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'^\d*\.?\d*'),
+                            ),
+                          ],
+                          decoration: InputDecoration(
+                            labelText: '数値',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            isDense: true,
+                          ),
+                          onChanged: (v) => onSubstatChanged(
+                            i,
+                            sub.stat,
+                            double.tryParse(v) ?? 0,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
-                ),
-                if (piece.setName.isNotEmpty)
-                  Flexible(
-                    child: Text(
-                      piece.setName,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                    ),
-                  ),
-                const SizedBox(width: 8),
-                Text(
-                  '+${piece.level}',
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                'スコア ${_formatScore(_calcPieceScore(piece, scoreType, weights))}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              isExpanded: true,
-              initialValue: mainStatValue,
-              decoration: InputDecoration(
-                labelText: 'メインステータス',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                isDense: true,
-              ),
-              items: mainOptions
-                  .map(
-                    (stat) => DropdownMenuItem(
-                      value: stat,
-                      child: Text(stat),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (v) => onMainStatChanged(v ?? ''),
-            ),
-            const SizedBox(height: 8),
-            ...List.generate(4, (i) {
-              final sub = i < piece.substats.length
-                  ? piece.substats[i]
-                  : const ArtifactSubstat(stat: '', value: 0);
-              final subStatValue = _matchingOption(sub.stat, subStatOptions);
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        initialValue: subStatValue,
-                        decoration: InputDecoration(
-                          labelText: 'サブ${i + 1}',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          isDense: true,
-                        ),
-                        items: subStatOptions
-                            .map(
-                              (stat) => DropdownMenuItem(
-                                value: stat,
-                                child: Text(stat),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (v) =>
-                            onSubstatChanged(i, v ?? '', sub.value),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextFormField(
-                        initialValue:
-                            sub.stat.isEmpty ? '' : _formatValue(sub.value),
-                        enabled: sub.stat.isNotEmpty,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'^\d*\.?\d*'),
-                          ),
-                        ],
-                        decoration: InputDecoration(
-                          labelText: '数値',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          isDense: true,
-                        ),
-                        onChanged: (v) => onSubstatChanged(
-                          i,
-                          sub.stat,
-                          double.tryParse(v) ?? 0,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ],
+                );
+              }),
+            ],
+          ),
         ),
       ),
     );
