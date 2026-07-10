@@ -2,6 +2,34 @@
 
 セッションごとの設計判断ログ。重要な決定のみ追記する。
 
+## 2026-07-11 — マスタ同期の自動更新対応
+
+- **現状解析**: Amber 一覧は毎回 upsert。突破は **未取得 ID のみ**（`fullUpgrade` は未配線だった）。起動同期は初回のみ。曜日スケジュールは asset 固定。
+- **改善**:
+  - `MasterContentProbe` — Amber 一覧件数 vs ローカル件数で新コンテンツ検知
+  - 起動時: `shouldAutoSyncOnLaunch`（未同期/突破不足）またはプローブ `shouldSync` で自動同期
+  - 設定: 「完全再同期」で `fullUpgrade: true`（突破全件再取得）
+  - `getLastSyncTime` は `success` + `partial` を対象
+  - 曜日スケジュール: `DAILY_MATERIAL_SCHEDULE_URL`（dart-define）でリモート JSON。`version` がローカル以上なら採用
+- **残課題（手動/将来）**: レベル EXP 表のハードコード、新天賦本シリーズの JSON 追記（リモート未設定時）、既存突破行の差分検知（件数一致時はプローブでは検知不可 → 完全再同期）
+- **恒久ルール**: 機能追加時は Sync 連携必須（`.cursor/rules/genshin-master-sync-extensibility.mdc` + `AGENTS.md` §8）
+
+## 2026-07-11 — 拡張アーキテクチャ P0–P3
+
+- **P0**: `application/characters`（State + Load/Save/ApplyHoyolab UseCase）。Notifier は UseCase 呼び出しに薄型化
+- **P1**: `domain/repositories` 契約 + `DriftCharacterRepository` / `DriftProgressRepository`。features の master/display/weights は domain 参照へ
+- **P2**: `domain/team` · `domain/damage` · `domain/meta` + Akasha→`MetaRankingSource` アダプタ
+- **P3**: `UserAccount` + `CloudSyncPort` + `LocalOnlyCloudSync`（`cloudSyncPortProvider`）
+- **docs**: AGENTS 層依存ルール、ARCHITECTURE 図更新
+
+## 2026-07-11 — セキュリティ Phase 0–1
+
+- **Release**: minify/shrink + ProGuard、`key.properties` 任意署名、`allowBackup=false` + data extraction 除外
+- **HoYoLAB**: 全 HTTP に 25s timeout。cookie は `verifyLToken` + ロール取得成功後のみ SecureStorage へ
+- **エラー**: `core/errors/user_facing_error.dart` でユーザー文言と debug ログを分離。生 `$e` 表示を除去
+- **CI**: mobile CI に簡易 secret ガード、release 例に `--obfuscate --split-debug-info`
+- **未実施（次段階）**: applicationId 本番化、JSON スキーマ検証、SQLCipher、Agent auto-commit 強化
+
 ## 2026-07-11 — アーキテクチャ改善（段階実装）
 
 - **Phase 0**: `genshin-mobile-ci.yml`（analyze + test）。ARCHITECTURE/AGENTS を Drift・MethodChannel 実態に更新

@@ -97,6 +97,19 @@ class AmberApi {
     return Isolate.run(() => parseMaterialsFromAmberItems(items));
   }
 
+  /// 一覧件数のみ（プローブ用。突破詳細は取得しない）
+  Future<({int characters, int weapons, int materials})>
+      fetchMasterListCounts() async {
+    final avatars = await _fetchItems('/avatar');
+    final weapons = await _fetchItems('/weapon');
+    final materials = await _fetchItems('/material');
+    return (
+      characters: countSyncableCharactersFromAmberItems(avatars),
+      weapons: weapons.length,
+      materials: materials.length,
+    );
+  }
+
   Future<Map<String, dynamic>> fetchAvatarDetail(String id) =>
       _fetchDetail('/avatar/$id');
 

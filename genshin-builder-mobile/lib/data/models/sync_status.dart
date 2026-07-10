@@ -31,6 +31,14 @@ class SyncStatus {
   bool get needsInitialUpgradeSync =>
       characters > 0 && characterUpgrades == 0;
 
+  /// ローカルにマスタはあるが突破データが不足（新キャラ追加後など）
+  bool get hasMissingUpgrades =>
+      missingCharacterUpgrades > 0 || missingWeaponUpgrades > 0;
+
+  /// 起動時に自動同期すべきか（初回 or 突破不足）
+  bool get shouldAutoSyncOnLaunch =>
+      isUnsynced || needsInitialUpgradeSync || hasMissingUpgrades;
+
   bool get upgradeComplete =>
       !isUnsynced &&
       missingCharacterUpgrades == 0 &&

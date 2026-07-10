@@ -94,7 +94,7 @@ class ProgressDao extends DatabaseAccessor<DriftAppDatabase>
 
   Future<DateTime?> getLastSyncTime() async {
     final row = await (select(syncLogs)
-          ..where((t) => t.status.equals('success'))
+          ..where((t) => t.status.isIn(['success', 'partial']))
           ..orderBy([(t) => OrderingTerm.desc(t.createdAt)])
           ..limit(1))
         .getSingleOrNull();

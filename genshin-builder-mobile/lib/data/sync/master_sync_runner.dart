@@ -11,8 +11,15 @@ Future<({SyncResult result, int iconsLoaded})> runMasterSyncWithIconPreload(
   WidgetRef ref, {
   void Function(SyncProgress progress)? onProgress,
   bool preloadOnlyMissingIcons = false,
+  bool fullUpgrade = false,
 }) async {
-  final service = await ref.read(masterSyncServiceProvider.future);
+  final db = await ref.read(appDatabaseProvider.future);
+  final amber = ref.read(amberApiProvider);
+  final service = MasterSyncService(
+    amberApi: amber,
+    db: db,
+    fullUpgrade: fullUpgrade,
+  );
   final result = await service.syncMasterData(onProgress: onProgress);
 
   onProgress?.call(
@@ -24,7 +31,6 @@ Future<({SyncResult result, int iconsLoaded})> runMasterSyncWithIconPreload(
     ),
   );
 
-  final db = await ref.read(appDatabaseProvider.future);
   final iconsLoaded = await IconPreloadService(db).preloadMasterIcons(
     onlyMissing: preloadOnlyMissingIcons,
     onProgress: onProgress,

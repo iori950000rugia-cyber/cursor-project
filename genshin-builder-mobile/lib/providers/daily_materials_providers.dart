@@ -62,6 +62,7 @@ final dailyProgressPrefetchProvider =
 });
 
 void invalidateDailyMaterialsProviders(WidgetRef ref) {
+  ref.invalidate(dailyMaterialScheduleRepositoryProvider);
   ref.invalidate(dailyMaterialsServiceProvider);
   ref.invalidate(dailyMaterialsPlanProvider);
   ref.invalidate(dailyProgressPrefetchProvider);

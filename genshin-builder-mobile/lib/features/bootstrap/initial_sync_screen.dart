@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/errors/user_facing_error.dart';
 import '../../data/models/sync_status.dart';
+import '../../data/sync/master_content_probe.dart';
 import '../../data/sync/master_sync_runner.dart';
 import '../../providers/app_providers.dart';
 
-/// 初回起動時のマスタ同期・アイコン事前読み込み
+/// 起動時のマスタ同期・アイコン事前読み込み
+///
+/// - ローカル未同期 / 突破不足 → 自動同期
+/// - それ以外 → Amber 一覧件数をプローブし、新コンテンツがあれば自動同期
 class InitialSyncScreen extends ConsumerStatefulWidget {
   const InitialSyncScreen({super.key});
 
@@ -17,6 +22,7 @@ class InitialSyncScreen extends ConsumerStatefulWidget {
 class _InitialSyncScreenState extends ConsumerState<InitialSyncScreen> {
   bool _running = false;
   String? _error;
+  String? _subtitle;
   SyncProgress? _syncProgress;
 
   @override
@@ -29,15 +35,47 @@ class _InitialSyncScreenState extends ConsumerState<InitialSyncScreen> {
     if (_running) return;
 
     final status = await ref.read(syncStatusProvider.future);
-    if (!status.isUnsynced && !status.needsInitialUpgradeSync) {
-      if (mounted) context.go('/');
+    if (status.shouldAutoSyncOnLaunch) {
+      setState(() {
+        _subtitle = status.isUnsynced
+            ? 'キャラ・武器・素材のマスタデータを取得し、アイコンを読み込んでいます。'
+            : '不足している突破データを取得しています。';
+      });
+      await _runSync();
       return;
     }
 
-    await _runInitialSync();
+    // ローカルは揃っているが、リモートに新キャラ等が増えていないか確認
+    setState(() {
+      _subtitle = 'ゲームデータの更新を確認しています…';
+      _running = true;
+    });
+
+    try {
+      final db = await ref.read(appDatabaseProvider.future);
+      final amber = ref.read(amberApiProvider);
+      final probe = await MasterContentProbe(amberApi: amber, db: db).check();
+
+      if (!mounted) return;
+
+      if (probe.shouldSync) {
+        setState(() {
+          _running = false;
+          _subtitle =
+              '新しいゲームデータを検出しました（${probe.reasonSummary}）。同期します…';
+        });
+        await _runSync();
+        return;
+      }
+    } catch (e, st) {
+      logAppError(e, st, 'initialSync.probe');
+      // プローブ失敗時はホームへ（手動同期に委ねる）
+    }
+
+    if (mounted) context.go('/');
   }
 
-  Future<void> _runInitialSync() async {
+  Future<void> _runSync() async {
     setState(() {
       _running = true;
       _error = null;
@@ -47,6 +85,7 @@ class _InitialSyncScreenState extends ConsumerState<InitialSyncScreen> {
     try {
       final outcome = await runMasterSyncWithIconPreload(
         ref,
+        preloadOnlyMissingIcons: true,
         onProgress: (p) {
           if (mounted) setState(() => _syncProgress = p);
         },
@@ -56,18 +95,23 @@ class _InitialSyncScreenState extends ConsumerState<InitialSyncScreen> {
       if (!mounted) return;
 
       if (result.characters == 0) {
+        if (result.hasErrors) {
+          logAppError(result.errors.join('; '), null, 'initialSync');
+        }
         setState(() {
           _error = result.hasErrors
-              ? '同期に失敗しました: ${result.errors.join('; ')}'
+              ? userFacingSyncErrors(result.errors)
               : 'キャラデータを取得できませんでした。ネットワーク接続を確認してください。';
         });
         return;
       }
 
       context.go('/');
-    } catch (e) {
+    } catch (e, st) {
+      logAppError(e, st, 'initialSync');
       if (mounted) {
-        setState(() => _error = '初期同期に失敗しました: $e');
+        setState(() =>
+            _error = '同期に失敗しました。ネットワーク接続を確認して再試行してください。');
       }
     } finally {
       if (mounted) {
@@ -100,14 +144,15 @@ class _InitialSyncScreenState extends ConsumerState<InitialSyncScreen> {
               ),
               const SizedBox(height: 24),
               Text(
-                '初回セットアップ',
+                'データ同期',
                 style: theme.textTheme.headlineSmall,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
               Text(
-                'キャラ・武器・素材のマスタデータを取得し、アイコンを読み込んでいます。'
-                '初回のみ数分かかることがあります。',
+                _subtitle ??
+                    'キャラ・武器・素材のマスタデータを取得し、アイコンを読み込んでいます。'
+                        '初回のみ数分かかることがあります。',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -138,8 +183,12 @@ class _InitialSyncScreenState extends ConsumerState<InitialSyncScreen> {
                 ),
                 const SizedBox(height: 16),
                 FilledButton(
-                  onPressed: _running ? null : _runInitialSync,
+                  onPressed: _running ? null : _runSync,
                   child: const Text('再試行'),
+                ),
+                TextButton(
+                  onPressed: _running ? null : () => context.go('/'),
+                  child: const Text('スキップして続行'),
                 ),
               ],
               const Spacer(flex: 2),

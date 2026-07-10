@@ -54,6 +54,22 @@ List<MasterCharacter> parseCharactersFromAmberItems(
   return characters;
 }
 
+/// 同期対象キャラ件数（旅人女スキップ・element/name 必須 — parse と同じ条件）
+int countSyncableCharactersFromAmberItems(Map<String, dynamic> items) {
+  var count = 0;
+  for (final raw in items.values) {
+    final avatar = raw as Map<String, dynamic>;
+    final elementKey = avatar['element'] as String?;
+    final element = elementKey != null ? elementMap[elementKey] : null;
+    final name = avatar['name'] as String?;
+    if (element == null || name == null || name.isEmpty) continue;
+    final id = '${avatar['id']}';
+    if (id.startsWith('10000007-')) continue;
+    count++;
+  }
+  return count;
+}
+
 List<MasterWeapon> parseWeaponsFromAmberItems(Map<String, dynamic> items) {
   final weapons = <MasterWeapon>[];
   for (final raw in items.values) {

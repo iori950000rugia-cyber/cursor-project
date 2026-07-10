@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../data/models/sync_status.dart';
+import '../../core/errors/user_facing_error.dart';
 import '../../data/sync/master_sync_runner.dart';
 import '../../providers/app_providers.dart';
 
@@ -18,7 +19,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String? _lastMessage;
   SyncProgress? _syncProgress;
 
-  Future<void> _sync() async {
+  Future<void> _sync({bool fullUpgrade = false}) async {
     setState(() {
       _syncing = true;
       _lastMessage = null;
@@ -27,7 +28,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       final outcome = await runMasterSyncWithIconPreload(
         ref,
-        preloadOnlyMissingIcons: true,
+        preloadOnlyMissingIcons: !fullUpgrade,
+        fullUpgrade: fullUpgrade,
         onProgress: (p) {
           if (mounted) setState(() => _syncProgress = p);
         },
@@ -36,24 +38,54 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final iconMessage = outcome.iconsLoaded > 0
           ? ' · 新規アイコン ${outcome.iconsLoaded} 件'
           : ' · アイコンは取得済み';
+      final modeLabel = fullUpgrade ? '完全再同期完了' : '同期完了';
       if (!mounted) return;
       setState(() {
         _lastMessage = result.hasErrors
-            ? '一部エラー: ${result.errors.join('; ')}'
-            : '同期完了 — キャラ ${result.characters} / 武器 ${result.weapons} / '
+            ? userFacingSyncErrors(result.errors)
+            : '$modeLabel — キャラ ${result.characters} / 武器 ${result.weapons} / '
                 '素材 ${result.materials} · 突破 キャラ ${result.characterUpgrades} / '
                 '武器 ${result.weaponUpgrades}$iconMessage';
       });
-    } catch (e) {
+      if (result.hasErrors) {
+        logAppError(result.errors.join('; '), null, 'settings.sync');
+      }
+    } catch (e, st) {
+      logAppError(e, st, 'settings.sync');
       if (!mounted) return;
-      setState(() => _lastMessage = '同期失敗: $e');
+      setState(() => _lastMessage = '同期に失敗しました。再試行してください。');
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _syncing = false;
-        _syncProgress = null;
-      });
+      if (mounted) {
+        setState(() {
+          _syncing = false;
+          _syncProgress = null;
+        });
+      }
     }
+  }
+
+  Future<void> _confirmFullUpgrade() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('完全再同期'),
+        content: const Text(
+          '突破データをすべて再取得します。ゲーム側で素材要件が変わった場合に使います。'
+          '通常の同期より時間がかかります（数分）。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('実行'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) await _sync(fullUpgrade: true);
   }
 
   @override
@@ -85,7 +117,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   const SizedBox(height: 8),
                   const Text(
                     'Project Amber (gi.yatta.moe) からキャラ・武器・素材と突破データを取得します。'
-                    '初回は武器突破の取得に数分かかることがあります。',
+                    '通常同期は新規 ID の突破のみ取得します。素材要件の変更を取り込む場合は完全再同期を使います。',
                   ),
                   const SizedBox(height: 8),
                   syncStatusAsync.when(
@@ -97,7 +129,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               '武器 ${s.weaponUpgrades}/${s.weapons}',
                     ),
                     loading: () => const Text('…'),
-                    error: (e, _) => Text('$e'),
+                    error: (e, _) => Text(userFacingError(e)),
                   ),
                   const SizedBox(height: 8),
                   versionStatusAsync.when(
@@ -128,7 +160,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ],
                   const SizedBox(height: 16),
                   FilledButton.icon(
-                    onPressed: _syncing ? null : _sync,
+                    onPressed: _syncing ? null : () => _sync(),
                     icon: _syncing
                         ? const SizedBox(
                             width: 16,
@@ -137,6 +169,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           )
                         : const Icon(Icons.cloud_download),
                     label: Text(_syncing ? '同期中…' : '今すぐ同期'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _syncing ? null : _confirmFullUpgrade,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('完全再同期（突破を全件再取得）'),
                   ),
                   if (_lastMessage != null) ...[
                     const SizedBox(height: 12),
