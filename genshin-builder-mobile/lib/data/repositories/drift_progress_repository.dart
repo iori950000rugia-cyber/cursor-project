@@ -1,11 +1,13 @@
+import '../../domain/models/master_models.dart';
+import '../../domain/repositories/progress_repository.dart';
 import '../db/app_database.dart';
-import '../models/master_models.dart';
 
-class ProgressRepository {
-  ProgressRepository(this._db);
+class DriftProgressRepository implements ProgressRepository {
+  DriftProgressRepository(this._db);
 
   final AppDatabase _db;
 
+  @override
   Future<UserProgress> getOrCreate({
     required String userId,
     required String characterId,
@@ -13,8 +15,10 @@ class ProgressRepository {
   }) =>
       _db.getOrCreateProgress(userId, characterId, progressId);
 
+  @override
   Future<List<UserProgress>> getAll(String userId) =>
       _db.getAllProgress(userId);
 
+  @override
   Future<void> save(UserProgress progress) => _db.upsertProgress(progress);
 }

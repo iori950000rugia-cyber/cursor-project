@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/akasha/akasha_weapon_usage.dart';
 import '../data/akasha/akasha_weapon_usage_repository.dart';
 import '../data/amber/amber_detail_repository.dart';
+import '../data/meta/akasha_weapon_meta_ranking_source.dart';
 import '../domain/character_stats.dart';
+import '../domain/meta/meta_ranking_source.dart';
 
 export 'character_detail_notifier.dart'
     show characterDetailProvider, CharacterDetailNotifier;
@@ -21,6 +23,13 @@ final akashaWeaponUsageRepositoryProvider =
   final repo = AkashaWeaponUsageRepository();
   ref.onDispose(repo.dispose);
   return repo;
+});
+
+/// メタランキング（現状は Akasha 武器使用率）
+final metaRankingSourceProvider = Provider<MetaRankingSource>((ref) {
+  return AkashaWeaponMetaRankingSource(
+    ref.watch(akashaWeaponUsageRepositoryProvider),
+  );
 });
 
 /// キャラ別武器使用率（失敗時は heuristic 空スナップショット）

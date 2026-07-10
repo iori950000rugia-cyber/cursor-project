@@ -11,43 +11,56 @@
 | Phase | 内容 |
 |-------|------|
 | **1** | キャラ詳細 + 素材計算 + ブックマーク + Amber 同期 + **Drift** |
-| **2** | HoYoLAB（WebView + Cookie MethodChannel/WebViewCookieManager + secure storage + dailyNote） |
+| **2** | HoYoLAB（WebView + Cookie + secure storage + dailyNote） |
+| **拡張** | UseCase / Repository Port / Team·Damage·Meta·Cloud 境界 |
 
-詳細: `ARCHITECTURE.md`, `docs/PHASE1_IMPLEMENTATION.md`, `docs/PHASE2_HOYOLAB.md`
+詳細: `ARCHITECTURE.md`
 
 ## 作業ルール
 
 1. **既存 Web を変更しない**
-2. **domain/ は純 Dart** — Flutter / Drift / http に依存しない。マスタ型は `domain/models/`、Amber 詳細 DTO は `domain/models/amber_detail_models.dart`
+2. **domain/ は純 Dart** — Flutter / Drift / http に依存しない
 3. **計算・ブックマーク sourceKey は Web と一致**
-4. **genshin_material は参考のみ** — DS 署名・API パターンを理解し自前実装
-5. **Cookie は secure storage のみ**（Phase 2）
+4. **genshin_material は参考のみ**
+5. **Cookie は secure storage のみ**
 6. **README 非公式免責を維持**
+7. **層依存（厳守）**
+   - `features` → `providers` / `domain` / `application`（状態型）のみ。**`data/` 直参照は原則禁止**（hoyolab 機能内の DTO・ログインは例外）
+   - `providers` → `application` + `domain` + `data` 実装の配線
+   - `application` → `domain` + Repository 契約。必要時のみ data DTO（HoYoLAB 反映など）
+   - `data` → `domain` 実装
+   - `domain` → 外部パッケージ依存なし（純 Dart）
+8. **マスタ同期との連携（厳守）**
+   - 新機能・新データ・新画面は既存 Sync（Amber → DB upsert → probe / 起動自動同期）から孤立させない
+   - 外部ソースから自動取得・差分更新できる設計を優先。手動入力・ハードコード一覧を増やさない
+   - 追加時チェック: 既存 Sync で足りるか → API/Provider → スキーマ → 正規化 → `MasterSyncService` 組み込み → upsert/重複防止
+   - 目標: 原神アップデートの新キャラ・武器・聖遺物・素材を自動同期で取り込めること
+   - Cursor ルール: `../.cursor/rules/genshin-master-sync-extensibility.mdc`
 
 ## ディレクトリ
 
 ```
 lib/
+  core/                 # errors 等
   domain/
-    models/          # Master* / Amber detail DTOs / calc models
+    models/
+    repositories/       # 抽象契約
+    team/ damage/ meta/ account/  # 将来機能の境界モデル
+  application/
+    characters/         # UseCase + CharacterDetailState
+    sync/               # CloudSyncPort ローカル実装
   data/
-    db/              # Drift
-    amber/
-    sync/
-    repositories/
-    hoyolab/
-    secure/
-    artifact_score/  # Resolver 等（Repository 依存は data）
-  platform/          # MethodChannel（Cookie フォールバック）
-  features/
+    repositories/       # Drift* 実装
+    sources 相当: amber/ hoyolab/ akasha/ meta/ db/
   providers/
+  features/
 ```
 
 ## コマンド
 
 ```bash
 flutter pub get
-dart run build_runner build --delete-conflicting-outputs   # Drift / Pigeon
+dart run build_runner build --delete-conflicting-outputs
 flutter analyze
 flutter test
 flutter run

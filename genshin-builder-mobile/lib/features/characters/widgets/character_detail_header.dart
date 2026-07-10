@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../data/amber/amber_constants.dart';
+import '../../../domain/game_display.dart';
 import '../../../domain/models/amber_detail_models.dart';
-import '../../../data/models/master_models.dart';
+import '../../../domain/models/master_models.dart';
 import '../../../providers/character_detail_providers.dart';
 import '../../shared/game_icon_image.dart';
 import 'constellation_icons_row.dart';

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../domain/daily_materials/daily_material_models.dart';
+import '../../core/errors/user_facing_error.dart';
 import '../../providers/daily_materials_providers.dart';
 import 'widgets/series_card.dart';
 
@@ -85,7 +86,7 @@ class _DailyMaterialsScreenState extends ConsumerState<DailyMaterialsScreen>
       ),
       body: planAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('読み込みエラー: $e')),
+        error: (e, _) => Center(child: Text(userFacingError(e))),
         data: (plan) {
           return RefreshIndicator(
             onRefresh: _refresh,

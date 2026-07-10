@@ -1,6 +1,6 @@
 import '../repositories/bookmark_repository.dart';
-import '../repositories/character_repository.dart';
-import '../repositories/progress_repository.dart';
+import '../../domain/repositories/character_repository.dart';
+import '../../domain/repositories/progress_repository.dart';
 import '../../domain/daily_materials/daily_material_models.dart';
 import '../../domain/daily_materials/daily_material_planner.dart';
 import '../../domain/models/bookmark.dart';

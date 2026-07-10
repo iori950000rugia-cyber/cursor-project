@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../data/models/master_models.dart';
+import '../../../domain/models/master_models.dart';
 import '../../../domain/bookmark_utils.dart';
 import '../../../domain/models/bookmark.dart';
 import '../../../providers/app_providers.dart';

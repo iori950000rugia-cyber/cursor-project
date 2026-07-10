@@ -10,52 +10,38 @@
 ```mermaid
 flowchart TB
   subgraph features [features/ UI]
-    Home[home]
-    CharList[characters/list]
-    CharDetail[characters/detail]
-    Bookmarks[bookmarks]
-    Settings[settings]
-    HoyolabLogin[hoyolab/login Phase2]
-    DailyNote[daily_note widget Phase2]
+    UI[screens / widgets]
   end
 
   subgraph providers [providers/ Riverpod]
-    RP[app_providers]
+    N[Notifiers / FutureProviders]
   end
 
-  subgraph repos [data/repositories]
-    CharRepo[character_repository]
-    ProgressRepo[progress_repository]
-    BookmarkRepo[bookmark_repository]
-    HoyolabRepo[hoyolab_repository Phase2]
-  end
-
-  subgraph data [data/]
-    Amber[amber/ gi.yatta.moe]
-    Sync[sync/ master_sync]
-    DB[(db/ Drift SQLite)]
-    Hoyolab[hoyolab/ API + DS Phase2]
-    Secure[secure/ flutter_secure_storage Phase2]
-  end
-
-  subgraph platform [platform/]
-    Channel[MethodChannel Cookie fallback]
-    WebView[WebView HoYoLAB login]
+  subgraph application [application/]
+    UC[UseCases]
+    State[CharacterDetailState]
   end
 
   subgraph domain [domain/ 純 Dart]
-    Calc[level/talent/material/weapon 計算]
+    Calc[stats / materials / planner]
+    Ports[Repository contracts]
+    Future[Team / Damage / Meta / Account]
   end
 
-  features --> providers --> repos
-  repos --> data
-  HoyolabLogin --> WebView --> Channel --> Secure
-  HoyolabRepo --> Hoyolab
-  Hoyolab --> Secure
-  repos --> domain
-  Sync --> Amber
-  Sync --> DB
+  subgraph data [data/]
+    Impl[Drift repos / Amber / HoYoLAB / Akasha]
+  end
+
+  features --> providers
+  providers --> application
+  providers --> data
+  application --> domain
+  application -.->|HoYoLAB DTO 例外| data
+  data --> domain
+  Impl --> Ports
 ```
+
+層ルールの詳細は `AGENTS.md` を参照。
 
 ---
 

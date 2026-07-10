@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../data/models/master_models.dart';
+import '../../../domain/models/master_models.dart';
 import '../../shared/game_icon_image.dart';
 
 /// シリーズ内素材を横並びで各必要数表示（最大 / 次の段階）

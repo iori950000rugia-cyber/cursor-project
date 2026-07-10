@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../data/artifact_score/artifact_score_weight.dart';
-import '../../../data/models/master_models.dart';
+import '../../../domain/artifact_score_weights.dart';
+import '../../../domain/models/master_models.dart';
 import '../../../domain/artifact_score.dart';
 import '../../../domain/level_config.dart';
 import '../../../domain/models/artifact_state.dart';

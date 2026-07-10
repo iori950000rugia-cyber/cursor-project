@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../data/hoyolab/models/game_record.dart';
+import '../../core/errors/user_facing_error.dart';
 import '../../domain/character_list_sort.dart';
 import '../../providers/character_list_sort_providers.dart';
 import '../../providers/hoyolab_game_providers.dart';
@@ -141,7 +142,7 @@ class CharacterListScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('エラー: $e')),
+        error: (e, _) => Center(child: Text(userFacingError(e))),
       ),
     );
   }

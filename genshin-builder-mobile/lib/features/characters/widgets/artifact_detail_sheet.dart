@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/models/amber_detail_models.dart';
-import '../../../data/artifact_score/artifact_score_weight.dart';
+import '../../../domain/artifact_score_weights.dart';
 import '../../../domain/artifact_config.dart';
 import '../../../domain/artifact_score.dart';
 import '../../../domain/character_stats.dart';

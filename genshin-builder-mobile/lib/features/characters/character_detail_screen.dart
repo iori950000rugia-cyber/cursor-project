@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/bookmark_utils.dart';
+import '../../core/errors/user_facing_error.dart';
 import '../../domain/level_progression.dart';
 import '../../domain/material_requirements.dart';
 import '../../domain/models/bookmark.dart';
@@ -214,8 +215,9 @@ class _CharacterDetailScreenState extends ConsumerState<CharacterDetailScreen>
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (detail.error != null) {
-      return Scaffold(body: Center(child: Text('エラー: ${detail.error}')));
-    }
+      return Scaffold(
+        body: Center(child: Text(userFacingError(detail.error))),
+      );    }
 
     final character = detail.character;
     if (character == null) {

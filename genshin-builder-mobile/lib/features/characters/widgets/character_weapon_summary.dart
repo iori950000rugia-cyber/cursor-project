@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../data/models/master_models.dart';
+import '../../../domain/models/master_models.dart';
 import '../../../domain/level_config.dart';
 import '../../shared/game_icon_image.dart';
 

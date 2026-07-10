@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../data/models/master_models.dart';
-import '../../../data/amber/amber_constants.dart';
+import '../../../domain/models/master_models.dart';
+import '../../../domain/game_display.dart';
 import '../../../domain/bookmark_utils.dart';
 import '../../../domain/level_config.dart';
 import '../../../domain/level_progression.dart';

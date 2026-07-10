@@ -5,8 +5,8 @@ import '../../domain/daily_materials/daily_progress_prefetch.dart';
 import '../../domain/hoyolab_slider_sync.dart';
 import '../hoyolab/hoyolab_game_data_repository.dart';
 import '../hoyolab/models/game_record.dart';
-import '../repositories/character_repository.dart';
-import '../repositories/progress_repository.dart';
+import '../../domain/repositories/character_repository.dart';
+import '../../domain/repositories/progress_repository.dart';
 import 'daily_material_schedule_repository.dart';
 
 class DailyProgressPrefetchResult {

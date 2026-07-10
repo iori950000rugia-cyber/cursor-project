@@ -7,16 +7,23 @@ import '../data/artifact_score/composite_artifact_score_weight_source.dart';
 import '../data/artifact_score/artifact_score_weight_source.dart';
 import '../data/artifact_score/local_json_artifact_score_weight_source.dart';
 import '../data/artifact_score/remote_artifact_score_weight_source.dart';
+import '../data/daily_materials/composite_daily_material_schedule_source.dart';
 import '../data/daily_materials/daily_material_schedule_repository.dart';
+import '../data/daily_materials/remote_daily_material_schedule_source.dart';
 import '../data/db/app_database.dart';
+import '../data/sync/master_content_probe.dart';
 import '../data/models/master_models.dart';
 import '../data/repositories/bookmark_repository.dart';
-import '../data/repositories/character_repository.dart';
+import '../data/repositories/drift_character_repository.dart';
+import '../data/repositories/drift_progress_repository.dart';
 import '../data/models/version_status.dart';
-import '../data/repositories/progress_repository.dart';
 import '../data/models/sync_status.dart';
 import '../data/sync/master_sync_service.dart';
 import '../data/versioning/versioning_service.dart';
+import '../domain/repositories/character_repository.dart';
+import '../domain/repositories/progress_repository.dart';
+import '../application/sync/local_only_cloud_sync.dart';
+import '../domain/account/user_account.dart';
 
 const localUserIdKey = 'local_user_id';
 
@@ -55,21 +62,38 @@ final artifactScoreWeightRepositoryProvider =
 
 final dailyMaterialScheduleRepositoryProvider =
     Provider<DailyMaterialScheduleRepository>((ref) {
-  return DailyMaterialScheduleRepository(
-    LocalJsonDailyMaterialScheduleSource(),
+  const remoteUrl = String.fromEnvironment(
+    'DAILY_MATERIAL_SCHEDULE_URL',
+    defaultValue: '',
   );
+  final remote = remoteUrl.isEmpty
+      ? null
+      : RemoteDailyMaterialScheduleSource(url: remoteUrl);
+  return DailyMaterialScheduleRepository(
+    CompositeDailyMaterialScheduleSource(
+      localSource: LocalJsonDailyMaterialScheduleSource(),
+      remoteSource: remote,
+    ),
+  );
+});
+
+final masterContentProbeProvider =
+    FutureProvider<MasterContentProbe>((ref) async {
+  final db = await ref.watch(appDatabaseProvider.future);
+  final amber = ref.watch(amberApiProvider);
+  return MasterContentProbe(amberApi: amber, db: db);
 });
 
 final characterRepositoryProvider =
     FutureProvider<CharacterRepository>((ref) async {
   final db = await ref.watch(appDatabaseProvider.future);
-  return CharacterRepository(db);
+  return DriftCharacterRepository(db);
 });
 
 final progressRepositoryProvider =
     FutureProvider<ProgressRepository>((ref) async {
   final db = await ref.watch(appDatabaseProvider.future);
-  return ProgressRepository(db);
+  return DriftProgressRepository(db);
 });
 
 final bookmarkRepositoryProvider =
@@ -131,6 +155,13 @@ final localUserIdProvider = FutureProvider<String>((ref) async {
     await db.setSetting(localUserIdKey, userId);
   }
   return userId;
+});
+
+/// クラウド同期ポート（現状はローカル専用 no-op）
+final cloudSyncPortProvider = FutureProvider<CloudSyncPort>((ref) async {
+  final userId = await ref.watch(localUserIdProvider.future);
+  final progress = await ref.watch(progressRepositoryProvider.future);
+  return LocalOnlyCloudSync(localUserId: userId, progress: progress);
 });
 
 final syncStateProvider =

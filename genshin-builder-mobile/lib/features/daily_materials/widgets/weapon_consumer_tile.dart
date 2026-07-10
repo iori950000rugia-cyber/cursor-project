@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../data/models/master_models.dart';
+import '../../../domain/models/master_models.dart';
 import '../../../domain/daily_materials/daily_material_models.dart';
 import '../../shared/game_icon_image.dart';
 import 'remaining_badge.dart';

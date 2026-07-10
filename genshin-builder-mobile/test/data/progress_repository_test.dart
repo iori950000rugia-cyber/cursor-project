@@ -1,7 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genshin_builder_mobile/data/db/app_database.dart';
-import 'package:genshin_builder_mobile/data/models/master_models.dart';
-import 'package:genshin_builder_mobile/data/repositories/progress_repository.dart';
+import 'package:genshin_builder_mobile/data/repositories/drift_progress_repository.dart';
+import 'package:genshin_builder_mobile/domain/models/master_models.dart';
+import 'package:genshin_builder_mobile/domain/repositories/progress_repository.dart';
 
 void main() {
   late AppDatabase db;
@@ -9,7 +10,7 @@ void main() {
 
   setUp(() async {
     db = await AppDatabase.openInMemory();
-    repo = ProgressRepository(db);
+    repo = DriftProgressRepository(db);
   });
 
   tearDown(() async {

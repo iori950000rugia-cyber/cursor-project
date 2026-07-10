@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../data/amber/amber_constants.dart';
-import '../../../data/models/master_models.dart';
+import '../../../domain/game_display.dart';
+import '../../../domain/models/master_models.dart';
 import '../../../domain/character_stats.dart';
 import '../../../domain/level_progression.dart';
 import '../../../domain/models/calculation_models.dart';

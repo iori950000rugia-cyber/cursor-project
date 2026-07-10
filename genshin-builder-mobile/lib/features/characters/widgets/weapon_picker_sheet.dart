@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/akasha/akasha_weapon_usage.dart';
-import '../../../data/amber/amber_constants.dart';
-import '../../../data/models/master_models.dart';
+import '../../../domain/game_display.dart';
+import '../../../domain/models/master_models.dart';
 import '../../../domain/level_config.dart';
 import '../../../domain/weapon_list_sort.dart';
 import '../../../providers/character_detail_providers.dart';
