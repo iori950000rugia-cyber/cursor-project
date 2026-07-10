@@ -44,6 +44,25 @@ const elementLabelMap = <String, String>{
   'dendro': '草',
 };
 
+const weaponTypeLabelMap = <String, String>{
+  'sword': '片手剣',
+  'claymore': '両手剣',
+  'polearm': '長柄武器',
+  'bow': '弓',
+  'catalyst': '法器',
+};
+
+/// 元素バッジ用カラー（Web `ELEMENT_INFO` 相当）
+const elementColorMap = <String, int>{
+  'pyro': 0xFFFF6B4A,
+  'hydro': 0xFF4FC3F7,
+  'electro': 0xFFB388FF,
+  'cryo': 0xFF80DEEA,
+  'anemo': 0xFF69F0AE,
+  'geo': 0xFFFFD54F,
+  'dendro': 0xFFA5D6A7,
+};
+
 const materialCategories = {
   'characterLevelUpMaterial',
   'characterAscensionMaterial',

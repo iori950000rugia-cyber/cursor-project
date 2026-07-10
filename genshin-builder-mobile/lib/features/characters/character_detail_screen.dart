@@ -21,13 +21,13 @@ import '../../domain/models/artifact_state.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/hoyolab_game_providers.dart';
 import '../hoyolab/widgets/hoyolab_character_status_card.dart';
-import '../shared/game_icon_image.dart';
-import '../shared/detail_section_accordion.dart';
 import '../shared/mark_slider.dart';
 import '../shared/material_list_tile.dart';
 import '../shared/max_enhanced_banner.dart';
+import 'widgets/character_detail_bookmark_actions.dart';
+import 'widgets/character_detail_header.dart';
+import 'widgets/character_talent_sections_list.dart';
 import 'widgets/character_relics_section.dart';
-import 'widgets/talent_materials_section.dart';
 import 'widgets/weapon_materials_section.dart';
 
 class CharacterDetailScreen extends ConsumerStatefulWidget {
@@ -40,8 +40,12 @@ class CharacterDetailScreen extends ConsumerStatefulWidget {
       _CharacterDetailScreenState();
 }
 
-class _CharacterDetailScreenState extends ConsumerState<CharacterDetailScreen> {
+class _CharacterDetailScreenState extends ConsumerState<CharacterDetailScreen>
+    with SingleTickerProviderStateMixin {
   static const _saveDebounceMs = 800;
+  static const _tabCount = 5;
+
+  late TabController _tabController;
 
   int _level = 1;
   int _targetLevel = levelMax;
@@ -74,15 +78,32 @@ class _CharacterDetailScreenState extends ConsumerState<CharacterDetailScreen> {
     ArtifactScoreType.atk,
   );
   bool _artifactScoreTypeUserSet = false;
+  late final CharacterDetailBookmarkActions _bookmarkActions;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: _tabCount, vsync: this);
+    _bookmarkActions = CharacterDetailBookmarkActions(
+      ref: ref,
+      getContext: () => context,
+      getBookmarks: () => _bookmarks,
+      setBookmarks: (bookmarks) => _bookmarks = bookmarks,
+      onStateChanged: () {
+        if (mounted) setState(() {});
+      },
+      getMaterials: () => _materials,
+      getLevel: () => _level,
+      getTargetLevel: () => _targetLevel,
+      getWeaponLevel: () => _weaponLevel,
+      getTargetWeaponLevel: () => _targetWeaponLevel,
+    );
     _load();
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _saveTimer?.cancel();
     super.dispose();
   }
@@ -421,7 +442,7 @@ class _CharacterDetailScreenState extends ConsumerState<CharacterDetailScreen> {
       );
 
   bool _isBookmarked(String sourceKey, String materialId) =>
-      isMaterialBookmarked(_bookmarks, sourceKey, materialId);
+      _bookmarkActions.isBookmarked(sourceKey, materialId);
 
   @override
   Widget build(BuildContext context) {
@@ -464,378 +485,251 @@ class _CharacterDetailScreenState extends ConsumerState<CharacterDetailScreen> {
     final rangeSourceKey =
         makeRangeSourceKey(bookmarkCtx, _level, _targetLevel);
 
-    final hoyolabBuild = ref.watch(hoyolabCharacterBuildProvider(widget.characterId)).valueOrNull;
-    final talentSummary = _buildTalentSummary();
-    final hoyolabSummary = _buildHoyolabSummary(hoyolabBuild);
     final artifactScoreType = _artifactScoreType;
     final resolvedArtifactScoreType = _resolvedArtifactScoreType;
 
     return Scaffold(
-      appBar: AppBar(title: Text(character.name)),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      appBar: AppBar(title: const Text('キャラ詳細')),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          DetailSectionAccordion(
-            title: 'キャラレベル',
-            summary: Text(
-              _level >= levelMax
-                  ? '最大強化済み · Lv.$_level'
-                  : 'Lv.$_level → 目標 Lv.$_targetLevel',
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (_hoyolabSynced) ...[
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Chip(
-                      avatar: Icon(
-                        Icons.sync,
-                        size: 16,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      label: const Text('HoYoLAB のレベルを反映済み'),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                if (_level >= levelMax) ...[
-                  MaxEnhancedBanner(label: 'キャラクターレベル', level: _level),
-                ] else ...[
-                  LevelMarkSlider(
-                    label: '現在レベル',
-                    value: _level,
-                    onChanged: _updateLevel,
-                  ),
-                  const SizedBox(height: 16),
-                  LevelMarkSlider(
-                    label: '目標レベル',
-                    value: _targetLevel,
-                    onChanged: (v) => setState(() => _targetLevel = v),
-                    headerTrailing: IconButton(
-                      icon: const Icon(Icons.bookmark_add_outlined),
-                      tooltip: '範囲をブックマーク',
-                      onPressed: () => _bookmarkRange(
-                        bookmarkCtx,
-                        rangeLines,
-                        rangeSourceKey,
-                      ),
-                    ),
-                  ),
-                  const Divider(height: 32),
-                  Text('次の段階', style: Theme.of(context).textTheme.titleMedium),
-                  if (nextStage == null)
-                    const Text('最大レベルです')
-                  else
-                    ...nextStageToRequirementLines(
-                      nextStage.materials,
-                      nextStage.levelUpMaterials,
-                      nextStage.mora,
-                      _resolveName,
-                      resolveIcon: _resolveIcon,
-                    ).map(
-                      (line) {
-                        final sourceKey = makeItemSourceKey(
-                          bookmarkCtx,
-                          'next',
-                          line.materialId,
-                        );
-                        return MaterialListTile(
-                          line: line,
-                          isBookmarked:
-                              _isBookmarked(sourceKey, line.materialId),
-                          onToggleBookmark: () => _toggleLineBookmark(
-                            bookmarkCtx,
-                            line,
-                            'next',
-                          ),
-                        );
-                      },
-                    ),
-                  const Divider(height: 24),
-                  Text('目標までの合計',
-                      style: Theme.of(context).textTheme.titleMedium),
-                  ...rangeLines.map(
-                    (line) => MaterialListTile(
-                      line: line,
-                      isBookmarked:
-                          _isBookmarked(rangeSourceKey, line.materialId),
-                      onToggleBookmark: () => _toggleRangeLineBookmark(
-                        bookmarkCtx,
-                        line,
-                        rangeSourceKey,
-                      ),
-                    ),
-                  ),
-                ],
+          CharacterDetailHeader(character: character),
+          Material(
+            color: Theme.of(context).colorScheme.surface,
+            child: TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              tabs: const [
+                Tab(text: 'レベル'),
+                Tab(text: '武器'),
+                Tab(text: '聖遺物'),
+                Tab(text: '天賦'),
+                Tab(text: 'HoYoLAB'),
               ],
             ),
           ),
-          const SizedBox(height: 12),
-          DetailSectionAccordion(
-            title: '武器',
-            summary: _buildWeaponSummaryWidget(),
-            child: WeaponMaterialsSection(
-              showTitle: false,
-              weapons: _weapons,
-              selectedWeaponId: _weaponId,
-              weaponLevel: _weaponLevel,
-              targetWeaponLevel: _targetWeaponLevel,
-              promotes: _weaponPromotes,
-              weaponRarity: _weaponRarity,
-              bookmarkContext: weaponBookmarkCtx,
-              bookmarks: _bookmarks,
-              resolveName: _resolveName,
-              resolveIcon: _resolveIcon,
-              onWeaponSelected: _onWeaponSelected,
-              onWeaponLevelChanged: _updateWeaponLevel,
-              onTargetWeaponLevelChanged: (v) =>
-                  setState(() => _targetWeaponLevel = v),
-              onToggleBookmark: (line, scope) => _toggleLineBookmark(
-                weaponBookmarkCtx,
-                line,
-                scope,
-              ),
-              onToggleRangeBookmark: (line, rangeSourceKey) =>
-                  _toggleRangeLineBookmark(
-                weaponBookmarkCtx,
-                line,
-                rangeSourceKey,
-              ),
-              onBookmarkRange: (lines, sourceKey) => _bookmarkRange(
-                weaponBookmarkCtx,
-                lines,
-                sourceKey,
-              ),
+          const Divider(height: 1),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildLevelTab(
+                  context: context,
+                  character: character,
+                  bookmarkCtx: bookmarkCtx,
+                  rangeLines: rangeLines,
+                  rangeSourceKey: rangeSourceKey,
+                  nextStage: nextStage,
+                ),
+                _buildWeaponTab(
+                  character: character,
+                  weaponBookmarkCtx: weaponBookmarkCtx,
+                ),
+                _buildRelicsTab(
+                  artifactScoreType: artifactScoreType,
+                  resolvedArtifactScoreType: resolvedArtifactScoreType,
+                ),
+                _buildTalentTab(character: character),
+                _buildHoyolabTab(),
+              ],
             ),
-          ),
-          const SizedBox(height: 12),
-          DetailSectionAccordion(
-            title: '聖遺物',
-            summary: ArtifactSummaryContent(
-              artifacts: _artifacts,
-              scoreType: artifactScoreType,
-              resolvedScoreType: resolvedArtifactScoreType,
-              scoreTypeUserSet: _artifactScoreTypeUserSet,
-              weights: _artifactScoreWeights,
-            ),
-            child: CharacterRelicsSection(
-              artifacts: _artifacts,
-              scoreType: artifactScoreType,
-              resolvedScoreType: resolvedArtifactScoreType,
-              scoreTypeUserSet: _artifactScoreTypeUserSet,
-              weights: _artifactScoreWeights,
-              onScoreTypeChanged: _updateArtifactScoreType,
-              onChanged: _updateArtifacts,
-            ),
-          ),
-          const SizedBox(height: 12),
-          DetailSectionAccordion(
-            title: 'スキル天賦',
-            summary: Text(talentSummary),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: _buildTalentSections(character),
-            ),
-          ),
-          const SizedBox(height: 12),
-          DetailSectionAccordion(
-            title: 'HoYoLAB 実データ',
-            summary: Text(hoyolabSummary),
-            child: HoyolabCharacterStatusCard(characterId: widget.characterId),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildWeaponSummaryWidget() {
-    if (_weaponId.isEmpty && _weaponName.isEmpty) {
-      return const Text('武器未選択');
-    }
-    final weapon = _weapons.where((w) => w.id == _weaponId).firstOrNull;
-    final name = _weaponName.isEmpty ? '武器' : _weaponName;
-    final levelText = _weaponLevel >= levelMax
-        ? '最大強化済み Lv.$_weaponLevel'
-        : 'Lv.$_weaponLevel → 目標 Lv.$_targetWeaponLevel';
-
-    return Row(
+  Widget _buildLevelTab({
+    required BuildContext context,
+    required MasterCharacter character,
+    required CultivationBookmarkContext bookmarkCtx,
+    required List<RequirementLine> rangeLines,
+    required String rangeSourceKey,
+    required NextStageRequirements? nextStage,
+  }) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
       children: [
-        GameIconImage(iconUrl: weapon?.iconUrl, size: 32),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text('$name · $levelText'),
+        if (_hoyolabSynced) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Chip(
+              avatar: Icon(
+                Icons.sync,
+                size: 16,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              label: const Text('HoYoLAB のレベルを反映済み'),
+              visualDensity: VisualDensity.compact,
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (_level >= levelMax) ...[
+          MaxEnhancedBanner(label: 'キャラクターレベル', level: _level),
+        ] else ...[
+          LevelMarkSlider(
+            label: '現在レベル',
+            value: _level,
+            onChanged: _updateLevel,
+          ),
+          const SizedBox(height: 16),
+          LevelMarkSlider(
+            label: '目標レベル',
+            value: _targetLevel,
+            onChanged: (v) => setState(() => _targetLevel = v),
+            headerTrailing: IconButton(
+              icon: const Icon(Icons.bookmark_add_outlined),
+              tooltip: '範囲をブックマーク',
+              onPressed: () => _bookmarkActions.bookmarkRange(
+                bookmarkCtx,
+                rangeLines,
+                rangeSourceKey,
+              ),
+            ),
+          ),
+          const Divider(height: 32),
+          Text('次の段階', style: Theme.of(context).textTheme.titleMedium),
+          if (nextStage == null)
+            const Text('最大レベルです')
+          else
+            ...nextStageToRequirementLines(
+              nextStage.materials,
+              nextStage.levelUpMaterials,
+              nextStage.mora,
+              _resolveName,
+              resolveIcon: _resolveIcon,
+            ).map(
+              (line) {
+                final sourceKey = makeItemSourceKey(
+                  bookmarkCtx,
+                  'next',
+                  line.materialId,
+                );
+                return MaterialListTile(
+                  line: line,
+                  isBookmarked: _isBookmarked(sourceKey, line.materialId),
+                  onToggleBookmark: () => _bookmarkActions.toggleLineBookmark(
+                    bookmarkCtx,
+                    line,
+                    'next',
+                  ),
+                );
+              },
+            ),
+          const Divider(height: 24),
+          Text('目標までの合計', style: Theme.of(context).textTheme.titleMedium),
+          ...rangeLines.map(
+            (line) => MaterialListTile(
+              line: line,
+              isBookmarked: _isBookmarked(rangeSourceKey, line.materialId),
+              onToggleBookmark: () => _bookmarkActions.toggleRangeLineBookmark(
+                bookmarkCtx,
+                line,
+                rangeSourceKey,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildWeaponTab({
+    required MasterCharacter character,
+    required CultivationBookmarkContext weaponBookmarkCtx,
+  }) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        WeaponMaterialsSection(
+          showTitle: true,
+          weapons: _weapons,
+          selectedWeaponId: _weaponId,
+          weaponLevel: _weaponLevel,
+          targetWeaponLevel: _targetWeaponLevel,
+          promotes: _weaponPromotes,
+          weaponRarity: _weaponRarity,
+          bookmarkContext: weaponBookmarkCtx,
+          bookmarks: _bookmarks,
+          resolveName: _resolveName,
+          resolveIcon: _resolveIcon,
+          onWeaponSelected: _onWeaponSelected,
+          onWeaponLevelChanged: _updateWeaponLevel,
+          onTargetWeaponLevelChanged: (v) =>
+              setState(() => _targetWeaponLevel = v),
+          onToggleBookmark: (line, scope) => _bookmarkActions.toggleLineBookmark(
+            weaponBookmarkCtx,
+            line,
+            scope,
+          ),
+          onToggleRangeBookmark: (line, rangeSourceKey) =>
+              _bookmarkActions.toggleRangeLineBookmark(
+            weaponBookmarkCtx,
+            line,
+            rangeSourceKey,
+          ),
+          onBookmarkRange: (lines, sourceKey) => _bookmarkActions.bookmarkRange(
+            weaponBookmarkCtx,
+            lines,
+            sourceKey,
+          ),
         ),
       ],
     );
   }
 
-  String _buildTalentSummary() {
-    final allMax = _talentNormal >= talentLevelMax &&
-        _talentSkill >= talentLevelMax &&
-        _talentBurst >= talentLevelMax;
-    if (allMax) {
-      return '最大強化済み · 通常$_talentNormal / スキル$_talentSkill / 爆発$_talentBurst';
-    }
-    return '通常$_talentNormal / スキル$_talentSkill / 爆発$_talentBurst';
+  Widget _buildRelicsTab({
+    required ArtifactScoreType artifactScoreType,
+    required ArtifactScoreType resolvedArtifactScoreType,
+  }) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        CharacterRelicsSection(
+          artifacts: _artifacts,
+          scoreType: artifactScoreType,
+          resolvedScoreType: resolvedArtifactScoreType,
+          scoreTypeUserSet: _artifactScoreTypeUserSet,
+          weights: _artifactScoreWeights,
+          onScoreTypeChanged: _updateArtifactScoreType,
+          onChanged: _updateArtifacts,
+        ),
+      ],
+    );
   }
 
-  String _buildHoyolabSummary(HoyolabCharacterBuild? build) {
-    if (build == null || !build.isOwned) {
-      return '未連携または未所持';
-    }
-    final parts = <String>['Lv.${build.level}'];
-    if (build.constellation > 0) {
-      parts.add('凸${build.constellation}');
-    }
-    if (build.weapon != null && build.weapon!.name.isNotEmpty) {
-      parts.add(build.weapon!.name);
-    }
-    return parts.join(' · ');
-  }
-
-  List<Widget> _buildTalentSections(MasterCharacter character) {
-    const slots = [
-      ('normal', 'skill_0', '通常攻撃', _TalentSlot.normal),
-      ('skill', 'skill_1', '元素スキル', _TalentSlot.skill),
-      ('burst', 'skill_2', '元素爆発', _TalentSlot.burst),
-    ];
-
-    return slots.map((slot) {
-      final upgrades = _talents[slot.$2] ?? [];
-      if (upgrades.isEmpty) return const SizedBox.shrink();
-      final level = switch (slot.$4) {
-        _TalentSlot.normal => _talentNormal,
-        _TalentSlot.skill => _talentSkill,
-        _TalentSlot.burst => _talentBurst,
-      };
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: TalentMaterialsSection(
-          characterId: character.id,
-          characterName: character.name,
-          characterIconUrl: character.iconUrl,
-          talentKind: slot.$1,
-          talentKey: slot.$2,
-          label: slot.$3,
-          currentLevel: level,
-          upgrades: upgrades,
+  Widget _buildTalentTab({required MasterCharacter character}) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        CharacterTalentSectionsList(
+          character: character,
+          talents: _talents,
+          talentNormal: _talentNormal,
+          talentSkill: _talentSkill,
+          talentBurst: _talentBurst,
           bookmarks: _bookmarks,
           resolveName: _resolveName,
           resolveIcon: _resolveIcon,
-          onLevelChanged: switch (slot.$4) {
-            _TalentSlot.normal => _updateTalentNormal,
-            _TalentSlot.skill => _updateTalentSkill,
-            _TalentSlot.burst => _updateTalentBurst,
-          },
-          onToggleBookmark: _toggleLineBookmark,
-          onBookmarkRange: _bookmarkRange,
-          onToggleRangeLineBookmark: _toggleRangeLineBookmark,
+          onTalentNormalChanged: _updateTalentNormal,
+          onTalentSkillChanged: _updateTalentSkill,
+          onTalentBurstChanged: _updateTalentBurst,
+          onToggleBookmark: _bookmarkActions.toggleLineBookmark,
+          onBookmarkRange: _bookmarkActions.bookmarkRange,
+          onToggleRangeLineBookmark: _bookmarkActions.toggleRangeLineBookmark,
         ),
-      );
-    }).toList();
-  }
-
-  Future<void> _bookmarkRange(
-    CultivationBookmarkContext ctx,
-    List<RequirementLine> lines,
-    String sourceKey,
-  ) async {
-    final repo = await ref.read(bookmarkRepositoryProvider.future);
-    final from = ctx.kind == CultivationKind.weaponLevel
-        ? _weaponLevel
-        : _level;
-    final to = ctx.kind == CultivationKind.weaponLevel
-        ? _targetWeaponLevel
-        : _targetLevel;
-    final sourceLabel = makeRangeSourceLabel(ctx, from, to);
-    final iconMap = {
-      for (final m in _materials.values) m.id: m.iconUrl,
-    };
-    final entries = buildBookmarkEntries(
-      lines: lines,
-      sourceKey: sourceKey,
-      sourceLabel: sourceLabel,
-      character: ctx.character,
-      iconUrlByMaterialId: iconMap,
+      ],
     );
-    await repo.replaceSourceBookmarks(
-      sourceKey: sourceKey,
-      entries: entries,
+  }
+
+  Widget _buildHoyolabTab() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        HoyolabCharacterStatusCard(characterId: widget.characterId),
+      ],
     );
-    _bookmarks = await repo.getAll();
-    ref.invalidate(aggregatedBookmarksProvider);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ブックマークに追加しました')),
-      );
-    }
-    setState(() {});
-  }
-
-  Future<void> _toggleRangeLineBookmark(
-    CultivationBookmarkContext ctx,
-    RequirementLine line,
-    String rangeSourceKey,
-  ) async {
-    final repo = await ref.read(bookmarkRepositoryProvider.future);
-    final id = makeBookmarkId(rangeSourceKey, line.materialId);
-    if (_isBookmarked(rangeSourceKey, line.materialId)) {
-      await repo.remove(id);
-      _bookmarks.removeWhere((b) => b.id == id);
-    } else {
-      final iconMap = {
-        for (final m in _materials.values) m.id: m.iconUrl,
-      };
-      final from = ctx.kind == CultivationKind.weaponLevel
-          ? _weaponLevel
-          : _level;
-      final to = ctx.kind == CultivationKind.weaponLevel
-          ? _targetWeaponLevel
-          : _targetLevel;
-      final entry = buildBookmarkEntries(
-        lines: [line],
-        sourceKey: rangeSourceKey,
-        sourceLabel: makeRangeSourceLabel(ctx, from, to),
-        character: ctx.character,
-        iconUrlByMaterialId: iconMap,
-      ).first;
-      await repo.addOrUpdate(entry);
-      _bookmarks.add(entry);
-    }
-    ref.invalidate(aggregatedBookmarksProvider);
-    setState(() {});
-  }
-
-  Future<void> _toggleLineBookmark(
-    CultivationBookmarkContext ctx,
-    RequirementLine line,
-    String scope,
-  ) async {
-    final repo = await ref.read(bookmarkRepositoryProvider.future);
-    final sourceKey = makeItemSourceKey(ctx, scope, line.materialId);
-    final id = makeBookmarkId(sourceKey, line.materialId);
-    if (_isBookmarked(sourceKey, line.materialId)) {
-      await repo.remove(id);
-      _bookmarks.removeWhere((b) => b.id == id);
-    } else {
-      final iconMap = {
-        for (final m in _materials.values) m.id: m.iconUrl,
-      };
-      final entry = buildBookmarkEntries(
-        lines: [line],
-        sourceKey: sourceKey,
-        sourceLabel: makeItemSourceLabel(ctx, line.name),
-        character: ctx.character,
-        iconUrlByMaterialId: iconMap,
-      ).first;
-      await repo.addOrUpdate(entry);
-      _bookmarks.add(entry);
-    }
-    ref.invalidate(aggregatedBookmarksProvider);
-    setState(() {});
   }
 }
-
-enum _TalentSlot { normal, skill, burst }
