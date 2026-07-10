@@ -1,0 +1,290 @@
+{
+  "version": 1,
+  "description": "Web (TypeScript) と Mobile (Dart) のドメイン計算パリティ用 golden。両側のテストが同一ファイルを読む。",
+  "suites": {
+    "clampInt": {
+      "cases": [
+        {
+          "id": "round-and-clamp",
+          "input": { "value": 5.7, "min": 1, "max": 10 },
+          "expected": 6
+        },
+        {
+          "id": "invalid-string-falls-to-min",
+          "input": { "value": "bad", "min": 1, "max": 10 },
+          "expected": 1
+        },
+        {
+          "id": "above-max",
+          "input": { "value": 100, "min": 1, "max": 90 },
+          "expected": 90
+        },
+        {
+          "id": "below-min",
+          "input": { "value": -5, "min": 1, "max": 10 },
+          "expected": 1
+        }
+      ]
+    },
+    "snapToLevelMark": {
+      "cases": [
+        { "id": "near-20", "input": { "value": 22 }, "expected": 20 },
+        { "id": "near-30", "input": { "value": 28 }, "expected": 30 },
+        { "id": "exact-90", "input": { "value": 90 }, "expected": 90 }
+      ]
+    },
+    "getWeaponExpBetweenMarks": {
+      "cases": [
+        {
+          "id": "5star-1-20",
+          "input": { "from": 1, "to": 20, "rarity": 5 },
+          "expected": 121550
+        },
+        {
+          "id": "5star-80-90",
+          "input": { "from": 80, "to": 90, "rarity": 5 },
+          "expected": 3714775
+        }
+      ]
+    },
+    "bookmarkKeys": {
+      "cases": [
+        {
+          "id": "range-character-level",
+          "fn": "makeRangeSourceKey",
+          "input": {
+            "kind": "character-level",
+            "targetId": "hu-tao",
+            "targetName": "胡桃",
+            "from": 1,
+            "to": 90
+          },
+          "expected": "range:character-level:hu-tao:1-90"
+        },
+        {
+          "id": "range-talent-with-subLabel",
+          "fn": "makeRangeSourceKey",
+          "input": {
+            "kind": "talent",
+            "targetId": "hu-tao",
+            "targetName": "胡桃",
+            "subLabel": "元素スキル",
+            "from": 1,
+            "to": 10
+          },
+          "expected": "range:talent:hu-tao:元素スキル:1-10"
+        },
+        {
+          "id": "item-next",
+          "fn": "makeItemSourceKey",
+          "input": {
+            "kind": "character-level",
+            "targetId": "hu-tao",
+            "targetName": "胡桃",
+            "scope": "next",
+            "materialId": "100001"
+          },
+          "expected": "item:character-level:hu-tao:next:100001"
+        },
+        {
+          "id": "bookmark-id",
+          "fn": "makeBookmarkId",
+          "input": {
+            "sourceKey": "item:character-level:hu-tao:next:100001",
+            "materialId": "100001"
+          },
+          "expected": "item:character-level:hu-tao:next:100001:100001"
+        }
+      ]
+    },
+    "getNextStageRequirements": {
+      "cases": [
+        {
+          "id": "character-1-to-20",
+          "input": {
+            "currentLevel": 1,
+            "kind": "character",
+            "weaponRarity": 5,
+            "promotes": [
+              {
+                "promoteLevel": 1,
+                "unlockMaxLevel": 20,
+                "costItems": { "100001": 1 },
+                "coinCost": 20000
+              }
+            ]
+          },
+          "expected": {
+            "fromLevel": 1,
+            "toLevel": 20,
+            "expTotal": 12275,
+            "mora": 21228,
+            "materialsById": { "100001": 1 },
+            "levelUpMaterialIds": ["104002", "104001"]
+          }
+        }
+      ]
+    },
+    "getRangeLevelRequirements": {
+      "cases": [
+        {
+          "id": "character-1-20",
+          "input": {
+            "fromLevel": 1,
+            "toLevel": 20,
+            "kind": "character",
+            "promotes": []
+          },
+          "expected": {
+            "linesByMaterialId": {
+              "104002": { "count": 2, "isMora": false },
+              "104001": { "count": 3, "isMora": false },
+              "__mora__": { "count": 1228, "isMora": true }
+            }
+          }
+        },
+        {
+          "id": "empty-when-to-lte-from",
+          "input": {
+            "fromLevel": 50,
+            "toLevel": 40,
+            "kind": "character",
+            "promotes": []
+          },
+          "expected": { "linesByMaterialId": {} }
+        }
+      ]
+    },
+    "getRangeTalentRequirements": {
+      "cases": [
+        {
+          "id": "talent-1-to-3",
+          "input": {
+            "fromLevel": 1,
+            "toLevel": 3,
+            "maxLevel": 10,
+            "upgrades": [
+              {
+                "level": 2,
+                "costItems": { "200001": 3 },
+                "coinCost": 12500
+              },
+              {
+                "level": 3,
+                "costItems": { "200001": 6 },
+                "coinCost": 17500
+              }
+            ]
+          },
+          "expected": {
+            "linesByMaterialId": {
+              "200001": { "count": 9 },
+              "__mora__": { "count": 30000 }
+            }
+          }
+        }
+      ]
+    },
+    "snapTalentLevel": {
+      "cases": [
+        {
+          "id": "near-2",
+          "input": { "value": 2.4, "max": 10 },
+          "expected": 2
+        },
+        {
+          "id": "exact-10",
+          "input": { "value": 10, "max": 10 },
+          "expected": 10
+        },
+        {
+          "id": "clamp-above-max",
+          "input": { "value": 99, "max": 10 },
+          "expected": 10
+        }
+      ]
+    },
+    "artifactMainStatValue": {
+      "cases": [
+        {
+          "id": "hp-lv20",
+          "input": { "statName": "HP", "level": 20 },
+          "expected": 4780
+        },
+        {
+          "id": "crit-rate-lv20",
+          "input": { "statName": "会心率", "level": 20 },
+          "expected": 31.1
+        },
+        {
+          "id": "atk-percent-lv20",
+          "input": { "statName": "攻撃力%", "level": 20 },
+          "expected": 46.6
+        },
+        {
+          "id": "unknown-stat",
+          "input": { "statName": "未知ステータス", "level": 20 },
+          "expected": 0
+        }
+      ]
+    },
+    "inferScoreType": {
+      "cases": [
+        {
+          "id": "em-from-special-prop",
+          "input": {
+            "specialProp": "FIGHT_PROP_ELEMENT_MASTERY",
+            "name": "Lisa"
+          },
+          "expected": "em"
+        },
+        {
+          "id": "atk-from-special-prop",
+          "input": {
+            "specialProp": "FIGHT_PROP_ATTACK_PERCENT",
+            "name": "Unknown"
+          },
+          "expected": "atk"
+        },
+        {
+          "id": "def-from-special-prop",
+          "input": {
+            "specialProp": "FIGHT_PROP_DEFENSE_PERCENT",
+            "name": "Unknown"
+          },
+          "expected": "def"
+        }
+      ]
+    },
+    "calcPieceScore": {
+      "cases": [
+        {
+          "id": "atk-type-sample",
+          "input": {
+            "type": "atk",
+            "substats": [
+              { "stat": "会心ダメージ", "value": 20 },
+              { "stat": "会心率", "value": 10 },
+              { "stat": "攻撃力%", "value": 10 },
+              { "stat": "元素熟知", "value": 40 }
+            ]
+          },
+          "expected": 50
+        },
+        {
+          "id": "em-type-sample",
+          "input": {
+            "type": "em",
+            "substats": [
+              { "stat": "会心ダメージ", "value": 20 },
+              { "stat": "会心率", "value": 10 },
+              { "stat": "攻撃力%", "value": 10 },
+              { "stat": "元素熟知", "value": 40 }
+            ]
+          },
+          "expected": 50
+        }
+      ]
+    }
+  }
+}

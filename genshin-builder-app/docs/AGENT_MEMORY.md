@@ -19,6 +19,24 @@
 
 ---
 
+## 2026-07-10 — Domain Golden パリティ（Web ↔ Mobile）
+
+- **目的:** TS/Dart 二重実装の計算ズレを同一 golden JSON で検出する
+- **決定事項:**
+  - 正本: `shared/domain-golden/cases.json`
+  - Web: `src/lib/__tests__/domain-golden.test.ts`（Vitest）
+  - Mobile: `test/domain/domain_golden_test.dart`（flutter test）
+  - CI: `.github/workflows/genshin-domain-golden.yml`
+  - 並び順非依存（`linesByMaterialId`）で比較
+- **変更ファイル（主要）:**
+  - `shared/domain-golden/*`
+  - `genshin-builder-app/src/lib/__tests__/domain-golden.test.ts`
+  - `genshin-builder-mobile/test/domain/domain_golden_test.dart`
+  - `.github/workflows/genshin-domain-golden.yml`
+- **未完了 / 次回:** ケース追加時は両側緑確認。片側失敗時は実装側を直す（golden を安易に合わせない）
+
+---
+
 ## 2026-07-08 — Memory 自動保存 Hook
 
 - **目的:** Agent ターン終了時に Memory 追記を手動依頼なしでトリガー
