@@ -5,9 +5,11 @@ import 'package:drift/drift.dart';
 import '../../../models/master_models.dart';
 import '../../../../domain/level_config.dart';
 import '../../../../domain/models/calculation_models.dart';
+import '../../../config/level_exp_table_builder.dart';
 import '../app_database.dart' hide LevelExpSegment;
 import '../tables/master_tables.dart';
 import '../../upgrade_serde.dart';
+import '../../upgrade_content_hash.dart';
 
 part 'character_dao.g.dart';
 
@@ -149,87 +151,31 @@ class CharacterDao extends DatabaseAccessor<DriftAppDatabase>
     });
   }
 
-  /// Web `buildLevelExpSegments` 相当の定数データ
-  List<LevelExpSegment> buildLevelExpSegments() {
-    const characterExp = <String, int>{
-      '1-20': 12275,
-      '20-30': 57900,
-      '30-40': 65700,
-      '40-50': 39300,
-      '50-60': 94800,
-      '60-70': 114300,
-      '70-80': 280800,
-      '80-90': 393750,
-    };
-
-    const weaponExpByRarity = <int, Map<String, int>>{
-      3: {
-        '1-20': 53475,
-        '20-30': 127978,
-        '30-40': 145247,
-        '40-50': 275350,
-        '50-60': 408650,
-        '60-70': 572725,
-        '70-80': 772825,
-        '80-90': 1638650,
-      },
-      4: {
-        '1-20': 81000,
-        '20-30': 194512,
-        '30-40': 220613,
-        '40-50': 418725,
-        '50-60': 618400,
-        '60-70': 866675,
-        '70-80': 1168350,
-        '80-90': 2476475,
-      },
-      5: {
-        '1-20': 121550,
-        '20-30': 291591,
-        '30-40': 331209,
-        '40-50': 628150,
-        '50-60': 927675,
-        '60-70': 1299125,
-        '70-80': 1750375,
-        '80-90': 3714775,
-      },
-    };
-
-    final segments = <LevelExpSegment>[];
-    for (var i = 0; i < levelMarks.length - 1; i++) {
-      final from = levelMarks[i];
-      final to = levelMarks[i + 1];
-      final key = '$from-$to';
-      final charExp = characterExp[key] ?? 0;
-      segments.add(
-        LevelExpSegment(
-          id: 'character-0-$from-$to',
-          targetType: 'character',
-          rarity: 0,
-          fromLevel: from,
-          toLevel: to,
-          expRequired: charExp,
-          moraRequired: (charExp / 10).round(),
-        ),
-      );
-
-      for (final rarity in [3, 4, 5]) {
-        final exp = weaponExpByRarity[rarity]?[key] ?? 0;
-        segments.add(
-          LevelExpSegment(
-            id: 'weapon-$rarity-$from-$to',
-            targetType: 'weapon',
-            rarity: rarity,
-            fromLevel: from,
-            toLevel: to,
-            expRequired: exp,
-            moraRequired: (exp / 10).round(),
+  Future<List<LevelExpSegment>> getAllLevelExpSegments() async {
+    final rows = await select(levelExpSegments).get();
+    return rows
+        .map(
+          (r) => LevelExpSegment(
+            id: r.id,
+            targetType: r.targetType,
+            rarity: r.rarity,
+            fromLevel: r.fromLevel,
+            toLevel: r.toLevel,
+            expRequired: r.expRequired,
+            moraRequired: r.moraRequired,
           ),
-        );
-      }
-    }
-    return segments;
+        )
+        .toList();
   }
+
+  /// `assets/config/level_exp_table.json` 相当の組み込み表からセグメントを構築。
+  /// 同期時は [LevelExpTableSource] 経由で asset を読むのが正本。
+  List<LevelExpSegment> buildLevelExpSegments() =>
+      LevelExpTableBuilder.buildFromMaps(
+        characterExp: characterExpBetweenMarks,
+        weaponExpByRarity: LevelExpTableBuilder.defaultWeaponExpByRarity,
+        marks: levelMarks,
+      );
 
   Future<Map<String, MasterMaterial>> getMaterialsMap() async {
     final all = await getAllMaterials();
@@ -242,16 +188,24 @@ class CharacterDao extends DatabaseAccessor<DriftAppDatabase>
     required Map<String, List<TalentLevelUpgrade>> talents,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
+    final promotesJson =
+        jsonEncode(promotes.map(UpgradeSerde.promoteToJson).toList());
+    final talentsJson = jsonEncode(
+      talents.map(
+        (key, value) =>
+            MapEntry(key, value.map(UpgradeSerde.talentToJson).toList()),
+      ),
+    );
+    final hash = computeUpgradeContentHash(
+      promotesJson: promotesJson,
+      secondaryJson: talentsJson,
+    );
     await into(characterUpgrades).insertOnConflictUpdate(
       CharacterUpgradesCompanion.insert(
         characterId: characterId,
-        promotes: jsonEncode(promotes.map(UpgradeSerde.promoteToJson).toList()),
-        talents: jsonEncode(
-          talents.map(
-            (key, value) =>
-                MapEntry(key, value.map(UpgradeSerde.talentToJson).toList()),
-          ),
-        ),
+        promotes: promotesJson,
+        talents: talentsJson,
+        contentHash: Value(hash),
         syncedAt: now,
       ),
     );
@@ -314,17 +268,42 @@ class CharacterDao extends DatabaseAccessor<DriftAppDatabase>
         .toSet();
   }
 
+  /// characterId → contentHash（空文字は未ハッシュ / マイグレーション直後）
+  Future<Map<String, String>> getCharacterUpgradeHashes() async {
+    final query = selectOnly(characterUpgrades)
+      ..addColumns([
+        characterUpgrades.characterId,
+        characterUpgrades.contentHash,
+      ]);
+    final rows = await query.get();
+    final map = <String, String>{};
+    for (final row in rows) {
+      final id = row.read(characterUpgrades.characterId);
+      if (id == null) continue;
+      map[id] = row.read(characterUpgrades.contentHash) ?? '';
+    }
+    return map;
+  }
+
   Future<void> upsertWeaponUpgrade({
     required String weaponId,
     required List<PromoteStage> promotes,
     required List<String> levelUpItemIds,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
+    final promotesJson =
+        jsonEncode(promotes.map(UpgradeSerde.promoteToJson).toList());
+    final itemsJson = jsonEncode(levelUpItemIds);
+    final hash = computeUpgradeContentHash(
+      promotesJson: promotesJson,
+      secondaryJson: itemsJson,
+    );
     await into(weaponUpgrades).insertOnConflictUpdate(
       WeaponUpgradesCompanion.insert(
         weaponId: weaponId,
-        promotes: jsonEncode(promotes.map(UpgradeSerde.promoteToJson).toList()),
-        levelUpItemIds: Value(jsonEncode(levelUpItemIds)),
+        promotes: promotesJson,
+        levelUpItemIds: Value(itemsJson),
+        contentHash: Value(hash),
         syncedAt: now,
       ),
     );
@@ -374,6 +353,20 @@ class CharacterDao extends DatabaseAccessor<DriftAppDatabase>
         .map((r) => r.read(weaponUpgrades.weaponId))
         .whereType<String>()
         .toSet();
+  }
+
+  /// weaponId → contentHash
+  Future<Map<String, String>> getWeaponUpgradeHashes() async {
+    final query = selectOnly(weaponUpgrades)
+      ..addColumns([weaponUpgrades.weaponId, weaponUpgrades.contentHash]);
+    final rows = await query.get();
+    final map = <String, String>{};
+    for (final row in rows) {
+      final id = row.read(weaponUpgrades.weaponId);
+      if (id == null) continue;
+      map[id] = row.read(weaponUpgrades.contentHash) ?? '';
+    }
+    return map;
   }
 
   CharactersCompanion _characterToCompanion(MasterCharacter c) =>

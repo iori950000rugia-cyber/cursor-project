@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'features/artifacts/artifact_sets_screen.dart';
 import 'features/bootstrap/initial_sync_screen.dart';
 import 'features/bookmarks/bookmarks_screen.dart';
 import 'features/characters/character_detail_screen.dart';
@@ -41,6 +42,10 @@ final appRouter = GoRouter(
           builder: (context, state) => const DailyMaterialsScreen(),
         ),
         GoRoute(
+          path: '/artifacts',
+          builder: (context, state) => const ArtifactSetsScreen(),
+        ),
+        GoRoute(
           path: '/bookmarks',
           builder: (context, state) => const BookmarksScreen(),
         ),
@@ -68,8 +73,9 @@ class AppShell extends StatelessWidget {
     final loc = GoRouterState.of(context).uri.path;
     if (loc.startsWith('/characters')) return 1;
     if (loc.startsWith('/daily')) return 2;
-    if (loc.startsWith('/bookmarks')) return 3;
-    if (loc.startsWith('/settings')) return 4;
+    if (loc.startsWith('/artifacts')) return 3;
+    if (loc.startsWith('/bookmarks')) return 4;
+    if (loc.startsWith('/settings')) return 5;
     return 0;
   }
 
@@ -88,8 +94,10 @@ class AppShell extends StatelessWidget {
             case 2:
               context.go('/daily');
             case 3:
-              context.go('/bookmarks');
+              context.go('/artifacts');
             case 4:
+              context.go('/bookmarks');
+            case 5:
               context.go('/settings');
           }
         },
@@ -108,6 +116,11 @@ class AppShell extends StatelessWidget {
             icon: Icon(Icons.calendar_today_outlined),
             selectedIcon: Icon(Icons.calendar_today),
             label: '曜日',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.diamond_outlined),
+            selectedIcon: Icon(Icons.diamond),
+            label: '聖遺物',
           ),
           NavigationDestination(
             icon: Icon(Icons.bookmark_outline),

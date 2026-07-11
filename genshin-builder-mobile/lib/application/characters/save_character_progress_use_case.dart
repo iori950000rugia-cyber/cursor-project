@@ -24,6 +24,7 @@ class SaveCharacterProgressUseCase {
       weaponId: state.weaponId,
       weaponName: state.weaponName,
       artifacts: state.artifacts,
+      artifactCompleted: state.artifactCompleted,
     );
     await _progress.save(updated);
     return updated;

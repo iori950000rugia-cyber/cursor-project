@@ -120,6 +120,9 @@ class ArtifactSetDetail {
     required this.name,
     required this.iconUrl,
     required this.effects,
+    this.region = 'その他',
+    this.sortOrder = 0,
+    this.route = '',
   });
 
   final String id;
@@ -128,4 +131,12 @@ class ArtifactSetDetail {
 
   /// 2セット / 4セット効果テキスト
   final List<String> effects;
+
+  /// 表示用地域（モンド / 璃月 / …）
+  final String region;
+
+  final int sortOrder;
+
+  /// Amber / Enka 英語ルート名（Akasha `artifactSets` キーと突合）
+  final String route;
 }

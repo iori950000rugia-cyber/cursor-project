@@ -135,10 +135,10 @@ class UserProgress {
     this.weaponLevel = 1,
     this.weaponRefinement = 1,
     this.artifactsJson = '{}',
-    this.isCompleted = false,
+    this.artifactCompleted = false,
     this.memo = '',
     this.artifactScoreType = '',
-  });
+  }) : isCompleted = artifactCompleted;
 
   final String id;
   final String userId;
@@ -154,6 +154,11 @@ class UserProgress {
   final int weaponLevel;
   final int weaponRefinement;
   final String artifactsJson;
+
+  /// 聖遺物育成完了（ユーザー手動チェック）。DB 列 `is_completed` に保存。
+  final bool artifactCompleted;
+
+  /// [artifactCompleted] の別名（レガシー互換）。
   final bool isCompleted;
   final String memo;
   final String artifactScoreType;
@@ -175,7 +180,7 @@ class UserProgress {
         'weapon_level': weaponLevel,
         'weapon_refinement': weaponRefinement,
         'artifacts': artifactsJson,
-        'is_completed': isCompleted ? 1 : 0,
+        'is_completed': artifactCompleted ? 1 : 0,
         'memo': memo,
         'artifact_score_type': artifactScoreType,
         'updated_at': DateTime.now().millisecondsSinceEpoch,
@@ -196,7 +201,7 @@ class UserProgress {
         weaponLevel: map['weapon_level'] as int? ?? 1,
         weaponRefinement: map['weapon_refinement'] as int? ?? 1,
         artifactsJson: map['artifacts'] as String? ?? '{}',
-        isCompleted: (map['is_completed'] as int? ?? 0) == 1,
+        artifactCompleted: (map['is_completed'] as int? ?? 0) == 1,
         memo: map['memo'] as String? ?? '',
         artifactScoreType: map['artifact_score_type'] as String? ?? '',
       );
@@ -215,6 +220,7 @@ class UserProgress {
     String? artifactScoreType,
     String? artifactsJson,
     ArtifactState? artifacts,
+    bool? artifactCompleted,
   }) {
     return UserProgress(
       id: id,
@@ -233,7 +239,7 @@ class UserProgress {
       artifactScoreType: artifactScoreType ?? this.artifactScoreType,
       artifactsJson: artifactsJson ??
           (artifacts != null ? encodeArtifactState(artifacts) : this.artifactsJson),
-      isCompleted: isCompleted,
+      artifactCompleted: artifactCompleted ?? this.artifactCompleted,
       memo: memo,
     );
   }

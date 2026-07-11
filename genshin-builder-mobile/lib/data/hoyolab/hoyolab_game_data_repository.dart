@@ -98,6 +98,77 @@ class HoyolabGameDataRepository {
     }
   }
 
+  /// 所持キャラの装備（聖遺物）を `/character/detail` から一括取得する。
+  ///
+  /// `/character/list` は現代 API では聖遺物を含まない。装備集計の正本は detail。
+  /// キャッシュ済みビルドは再利用し、未取得分だけバッチ取得する。
+  Future<Map<String, HoyolabCharacterBuild>> fetchOwnedCharacterBuilds({
+    bool forceRefresh = false,
+  }) async {
+    final owned = await fetchOwnedCharacterMap();
+    if (owned.isEmpty) return const {};
+
+    final result = <String, HoyolabCharacterBuild>{};
+    final missing = <String>[];
+
+    for (final id in owned.keys) {
+      if (!forceRefresh) {
+        final cached = _cache.getCharacterBuild<HoyolabCharacterBuild>(
+          id,
+          HoyolabConstants.characterDetailCacheTtl,
+        );
+        if (cached != null && cached.relics.isNotEmpty) {
+          result[id] = cached;
+          continue;
+        }
+      }
+      missing.add(id);
+    }
+
+    if (missing.isEmpty) return result;
+
+    final api = await _session.tryApi();
+    if (api == null) {
+      for (final id in missing) {
+        final summary = owned[id];
+        if (summary == null) continue;
+        result[id] = _buildFromSummary(summary);
+      }
+      return result;
+    }
+
+    try {
+      final builds = await api.getCharacterBuilds(missing);
+      for (final build in builds) {
+        final summary = lookupOwnedCharacter(owned, build.id);
+        final merged =
+            summary == null ? build : build.mergeSummary(summary);
+        _cache.setCharacterBuild(merged.id, merged);
+        result[merged.id] = merged;
+      }
+      // detail に含まれなかった所持キャラは summary フォールバック
+      for (final id in missing) {
+        if (result.containsKey(id)) continue;
+        final summary = owned[id];
+        if (summary == null) continue;
+        final fallback = _buildFromSummary(summary);
+        _cache.setCharacterBuild(id, fallback);
+        result[id] = fallback;
+      }
+    } on HoyolabApiException {
+      for (final id in missing) {
+        if (result.containsKey(id)) continue;
+        final summary = owned[id];
+        if (summary == null) continue;
+        final fallback = _buildFromSummary(summary);
+        _cache.setCharacterBuild(id, fallback);
+        result[id] = fallback;
+      }
+    }
+
+    return result;
+  }
+
   Future<AdventureStatus?> fetchAdventureStatus({bool forceRefresh = false}) async {
     if (!forceRefresh) {
       final cached = _cache.getAdventure<AdventureStatus>(

@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ArtifactScoreWeights",
+  "type": "object",
+  "required": ["profiles"],
+  "properties": {
+    "profiles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["characterId", "weights"],
+        "properties": {
+          "characterId": { "type": "string", "minLength": 1 },
+          "name": { "type": "string" },
+          "weights": {
+            "type": "object",
+            "properties": {
+              "critRate": { "type": "number" },
+              "critDamage": { "type": "number" },
+              "atkPercent": { "type": "number" },
+              "hpPercent": { "type": "number" },
+              "defPercent": { "type": "number" },
+              "elementalMastery": { "type": "number" },
+              "energyRecharge": { "type": "number" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

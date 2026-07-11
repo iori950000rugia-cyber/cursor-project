@@ -36,6 +36,10 @@
    - 追加時チェック: 既存 Sync で足りるか → API/Provider → スキーマ → 正規化 → `MasterSyncService` 組み込み → upsert/重複防止
    - 目標: 原神アップデートの新キャラ・武器・聖遺物・素材を自動同期で取り込めること
    - Cursor ルール: `../.cursor/rules/genshin-master-sync-extensibility.mdc`
+9. **セキュリティ自己監査**
+   - リリース前・HoYoLAB/秘密情報変更時は Skill `genshin-security-checklist`（`.cursor/skills/genshin-security-checklist/`）を使う
+   - **自動読込**: `.cursor/rules/genshin-security-checklist.mdc`（alwaysApply）。読む直前に「genshin-security-checklist を読みます」と宣言する
+   - 外部 800+ 攻撃系スキルは取り込まない。防御チェックのみ
 
 ## ディレクトリ
 

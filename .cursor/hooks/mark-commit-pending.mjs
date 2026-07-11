@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
  * Agent がコードファイルを編集したら自動コミット用フラグを立てる。
+ * 触ったファイルパスを `{ files: [...] }` として蓄積する。
  */
-import { mkdirSync, writeFileSync } from "fs";
-import { dirname, join } from "path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { dirname, join, relative } from "path";
 import { fileURLToPath } from "url";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -69,6 +70,37 @@ function extractFilePath(input) {
   );
 }
 
+/**
+ * @param {string} absOrRel
+ * @returns {string}
+ */
+function toRepoRelative(absOrRel) {
+  const normalized = String(absOrRel).replace(/\\/g, "/");
+  if (!normalized) return "";
+  try {
+    const abs = normalized.match(/^[a-zA-Z]:/) || normalized.startsWith("/")
+      ? normalized
+      : join(REPO_ROOT, normalized);
+    return relative(REPO_ROOT, abs).replace(/\\/g, "/");
+  } catch {
+    return normalized;
+  }
+}
+
+/**
+ * @returns {{ at?: string, file?: string, files?: string[], reason?: string }}
+ */
+function readPending() {
+  if (!existsSync(FLAG_PATH)) return {};
+  try {
+    const raw = readFileSync(FLAG_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 async function main() {
   const raw = await readStdin();
   let input = {};
@@ -78,19 +110,30 @@ async function main() {
     noop();
   }
 
-  const filePath = String(extractFilePath(input))
-    .replace(/\\/g, "/")
-    .toLowerCase();
+  const filePathRaw = String(extractFilePath(input));
+  const filePathLower = filePathRaw.replace(/\\/g, "/").toLowerCase();
 
-  if (!filePath) noop();
+  if (!filePathRaw) noop();
 
-  if (SKIP_PATTERNS.some((p) => filePath.includes(p))) {
+  if (SKIP_PATTERNS.some((p) => filePathLower.includes(p))) {
     noop();
   }
 
-  const ext = filePath.split(".").pop() ?? "";
+  const ext = filePathLower.split(".").pop() ?? "";
   if (!CODE_EXTENSIONS.has(ext)) {
     noop();
+  }
+
+  const rel = toRepoRelative(filePathRaw);
+  if (!rel || rel.startsWith("..")) noop();
+
+  const prev = readPending();
+  const files = Array.isArray(prev.files) ? [...prev.files] : [];
+  if (prev.file && !files.includes(prev.file)) {
+    files.push(String(prev.file).replace(/\\/g, "/"));
+  }
+  if (!files.includes(rel)) {
+    files.push(rel);
   }
 
   mkdirSync(dirname(FLAG_PATH), { recursive: true });
@@ -99,7 +142,8 @@ async function main() {
     JSON.stringify(
       {
         at: new Date().toISOString(),
-        file: input.file_path,
+        file: rel,
+        files,
       },
       null,
       2,

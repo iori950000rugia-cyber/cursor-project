@@ -12,6 +12,7 @@ import '../../hoyolab/widgets/hoyolab_character_status_card.dart';
 import '../../shared/mark_slider.dart';
 import '../../shared/material_list_tile.dart';
 import '../../shared/max_enhanced_banner.dart';
+import 'artifact_completion_panel.dart';
 import 'artifact_score_summary_card.dart';
 import 'character_detail_bookmark_actions.dart';
 import 'character_level_stats_panel.dart';
@@ -51,6 +52,7 @@ class CharacterDetailTabViews {
     required this.resolvedArtifactScoreType,
     required this.artifactScoreWeights,
     required this.artifactScoreTypeUserSet,
+    required this.artifactCompleted,
     required this.bookmarkCtx,
     required this.weaponBookmarkCtx,
     required this.rangeLines,
@@ -70,6 +72,7 @@ class CharacterDetailTabViews {
     required this.onTargetWeaponLevelChanged,
     required this.onArtifactsChanged,
     required this.onArtifactScoreTypeChanged,
+    required this.onArtifactCompletedChanged,
     required this.onResetToFetched,
     required this.snapshotFromCurrent,
   });
@@ -98,6 +101,7 @@ class CharacterDetailTabViews {
   final ArtifactScoreType resolvedArtifactScoreType;
   final ArtifactStatWeights artifactScoreWeights;
   final bool artifactScoreTypeUserSet;
+  final bool artifactCompleted;
   final CultivationBookmarkContext bookmarkCtx;
   final CultivationBookmarkContext weaponBookmarkCtx;
   final List<RequirementLine> rangeLines;
@@ -117,6 +121,7 @@ class CharacterDetailTabViews {
   final ValueChanged<int> onTargetWeaponLevelChanged;
   final ValueChanged<ArtifactState> onArtifactsChanged;
   final ValueChanged<ArtifactScoreType> onArtifactScoreTypeChanged;
+  final ValueChanged<bool> onArtifactCompletedChanged;
   final VoidCallback onResetToFetched;
   final CharacterBuildSnapshot Function() snapshotFromCurrent;
 
@@ -257,6 +262,14 @@ class CharacterDetailTabViews {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        ArtifactCompletionPanel(
+          artifacts: artifacts,
+          scoreType: artifactScoreType,
+          weights: artifactScoreWeights,
+          completed: artifactCompleted,
+          onCompletedChanged: onArtifactCompletedChanged,
+        ),
+        const SizedBox(height: 16),
         // 旧「スコア基準」の位置に 5部位スコア合計を表示（基準はセクション最下部へ移動）
         ArtifactScoreSummaryCard(
           artifacts: artifacts,

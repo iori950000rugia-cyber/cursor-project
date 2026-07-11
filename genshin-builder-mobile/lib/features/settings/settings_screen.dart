@@ -117,7 +117,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   const SizedBox(height: 8),
                   const Text(
                     'Project Amber (gi.yatta.moe) からキャラ・武器・素材と突破データを取得します。'
-                    '通常同期は新規 ID の突破のみ取得します。素材要件の変更を取り込む場合は完全再同期を使います。',
+                    '通常同期は未取得・contentHash 空の突破に加え、既存突破を最大 15 件ずつランダム再取得します。'
+                    '全件を確実に取り直す場合は完全再同期を使います。',
                   ),
                   const SizedBox(height: 8),
                   syncStatusAsync.when(

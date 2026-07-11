@@ -163,6 +163,7 @@ class HoyolabApi {
       ];
 
       HoyolabApiException? lastError;
+      List<HoyolabOwnedCharacter>? fallbackWithoutRelics;
       for (final base in HoyolabConstants.gameRecordBaseUrls) {
         for (final path in paths) {
           try {
@@ -185,67 +186,112 @@ class HoyolabApi {
               throw HoyolabApiException(result.retcode, result.message);
             }
             final owned = _parseOwnedCharacterList(result.data ?? {});
-            if (owned.isNotEmpty || path == HoyolabConstants.characterListPath) {
-              return owned;
+            if (owned.isEmpty) continue;
+
+            final relicCount =
+                owned.fold<int>(0, (n, c) => n + c.relics.length);
+            // /character/list は聖遺物無しのことがある → レガシーを優先試行
+            if (relicCount == 0 &&
+                path == HoyolabConstants.characterListPath) {
+              fallbackWithoutRelics ??= owned;
+              continue;
             }
+            return owned;
           } on HoyolabApiException catch (e) {
             lastError = e;
           }
         }
       }
 
+      if (fallbackWithoutRelics != null) return fallbackWithoutRelics;
       if (lastError != null) throw lastError;
       throw const HoyolabApiException(-1, '所持キャラクターを取得できませんでした');
     });
   }
 
-  Future<HoyolabCharacterBuild?> getCharacterBuild(String characterId) {
+  Future<HoyolabCharacterBuild?> getCharacterBuild(String characterId) async {
+    final list = await getCharacterBuilds([characterId]);
+    return list.isEmpty ? null : list.first;
+  }
+
+  /// `/character/detail` で複数キャラの装備（聖遺物含む）を取得する。
+  /// 現代 API では `/character/list` に聖遺物が載らないため、装備集計の正本。
+  Future<List<HoyolabCharacterBuild>> getCharacterBuilds(
+    List<String> characterIds, {
+    int batchSize = HoyolabConstants.characterDetailBatchSize,
+  }) {
     _ensureRecordParams();
+    final uniqueIds = <String>[];
+    final seen = <String>{};
+    for (final id in characterIds) {
+      final trimmed = id.trim();
+      if (trimmed.isEmpty || !seen.add(trimmed)) continue;
+      uniqueIds.add(trimmed);
+    }
+    if (uniqueIds.isEmpty) return Future.value(const []);
+
     return _queue.run(() async {
-      final bodyMap = {
-        ..._recordBody(),
-        'character_ids': [_parseCharacterId(characterId)],
-      };
-      final body = jsonEncode(bodyMap);
-      final ds = HoyolabAuth.generateDsToken(body: body);
-
-      HoyolabApiException? lastError;
-      for (final base in HoyolabConstants.gameRecordBaseUrls) {
-        try {
-          final response = await _post(
-            Uri.parse('$base${HoyolabConstants.characterDetailPath}'),
-            headers: HoyolabAuth.buildRecordHeaders(
-              cookie: cookie!,
-              appVersion: appVersion,
-              dsToken: ds,
-              jsonBody: true,
-            ),
-            body: body,
-          );
-          final json = jsonDecode(response.body) as Map<String, dynamic>;
-          final result = HoyolabApiResult<Map<String, dynamic>>.fromJson(
-            json,
-            (obj) => obj! as Map<String, dynamic>,
-          );
-          if (result.hasError) {
-            throw HoyolabApiException(result.retcode, result.message);
-          }
-          final data = result.data ?? {};
-          final list = data['list'] as List<dynamic>? ?? [];
-          if (list.isEmpty) return null;
-          final propertyMap = parseGameRecordPropertyMap(data['property_map']);
-          return HoyolabCharacterBuild.fromDetailJson(
-            list.first as Map<String, dynamic>,
-            propertyMap: propertyMap,
-          );
-        } on HoyolabApiException catch (e) {
-          lastError = e;
-        }
+      final out = <HoyolabCharacterBuild>[];
+      final size = batchSize < 1 ? uniqueIds.length : batchSize;
+      for (var i = 0; i < uniqueIds.length; i += size) {
+        final end = (i + size > uniqueIds.length) ? uniqueIds.length : i + size;
+        final chunk = uniqueIds.sublist(i, end);
+        out.addAll(await _fetchCharacterBuildChunk(chunk));
       }
-
-      if (lastError != null) throw lastError;
-      return null;
+      return out;
     });
+  }
+
+  Future<List<HoyolabCharacterBuild>> _fetchCharacterBuildChunk(
+    List<String> characterIds,
+  ) async {
+    final bodyMap = {
+      ..._recordBody(),
+      'character_ids': [
+        for (final id in characterIds) _parseCharacterId(id),
+      ],
+    };
+    final body = jsonEncode(bodyMap);
+    final ds = HoyolabAuth.generateDsToken(body: body);
+
+    HoyolabApiException? lastError;
+    for (final base in HoyolabConstants.gameRecordBaseUrls) {
+      try {
+        final response = await _post(
+          Uri.parse('$base${HoyolabConstants.characterDetailPath}'),
+          headers: HoyolabAuth.buildRecordHeaders(
+            cookie: cookie!,
+            appVersion: appVersion,
+            dsToken: ds,
+            jsonBody: true,
+          ),
+          body: body,
+        );
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        final result = HoyolabApiResult<Map<String, dynamic>>.fromJson(
+          json,
+          (obj) => obj! as Map<String, dynamic>,
+        );
+        if (result.hasError) {
+          throw HoyolabApiException(result.retcode, result.message);
+        }
+        final data = result.data ?? {};
+        final list = data['list'] as List<dynamic>? ?? [];
+        final propertyMap = parseGameRecordPropertyMap(data['property_map']);
+        return [
+          for (final raw in list)
+            HoyolabCharacterBuild.fromDetailJson(
+              raw as Map<String, dynamic>,
+              propertyMap: propertyMap,
+            ),
+        ];
+      } on HoyolabApiException catch (e) {
+        lastError = e;
+      }
+    }
+
+    if (lastError != null) throw lastError;
+    return const [];
   }
 
   Future<SpiralAbyssStatus> getSpiralAbyss({int scheduleType = 1}) {

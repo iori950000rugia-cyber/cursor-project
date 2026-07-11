@@ -15,6 +15,7 @@ import '../domain/models/artifact_state.dart';
 import '../domain/models/character_build_snapshot.dart';
 import '../domain/models/master_models.dart';
 import 'app_providers.dart';
+import 'artifact_sets_page_providers.dart';
 import 'hoyolab_game_providers.dart';
 
 final characterDetailProvider = AutoDisposeNotifierProvider.family<
@@ -110,7 +111,12 @@ class CharacterDetailNotifier
     );
     if (_disposed || next == null) return;
     state = next;
-    _scheduleSave();
+    // debounce 破棄で聖遺物が進捗に残らないのを防ぐ（即保存）
+    final progress = state.progress;
+    if (progress != null) {
+      await _persistProgress(progress);
+    }
+    ref.invalidate(artifactSetOverviewsProvider);
   }
 
   Future<void> resetToFetched() async {
@@ -213,6 +219,11 @@ class CharacterDetailNotifier
     _scheduleSave();
   }
 
+  void updateConstellation(int v) {
+    state = state.copyWith(constellation: v.clamp(0, 6));
+    _scheduleSave();
+  }
+
   void updateWeaponLevel(int v) {
     state = state.copyWith(weaponLevel: v);
     _scheduleSave();
@@ -225,6 +236,13 @@ class CharacterDetailNotifier
   void updateArtifacts(ArtifactState artifacts) {
     state = state.copyWith(artifacts: artifacts);
     _scheduleSave();
+    ref.invalidate(artifactSetOverviewsProvider);
+  }
+
+  void updateArtifactCompleted(bool completed) {
+    state = state.copyWith(artifactCompleted: completed);
+    _scheduleSave();
+    ref.invalidate(artifactSetOverviewsProvider);
   }
 
   void updateArtifactScoreType(ArtifactScoreType type) {

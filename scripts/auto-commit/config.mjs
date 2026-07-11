@@ -18,6 +18,11 @@ export const EXCLUDE_PATTERNS = [
   "credentials.json",
   "id_rsa",
   ".pem",
+  "local.properties",
+  "key.properties",
+  ".jks",
+  "google-services.json",
+  "secrets/",
 ];
 
 /**
@@ -31,6 +36,21 @@ export const SECRET_PATTERNS = [
   /\.key$/i,
   /id_rsa/i,
   /\.keystore$/i,
+  /key\.properties$/i,
+  /ltoken/i,
+];
+
+/** 1 回の自動コミットで扱う最大ファイル数（超過時はスキップ） */
+export const MAX_COMMIT_FILES = 40;
+
+/**
+ * ステージ差分に含まれていたらコミットを中止する秘密っぽい文字列
+ * @type {RegExp[]}
+ */
+export const DIFF_SECRET_PATTERNS = [
+  /ltoken/i,
+  /cookie\s*=/i,
+  /BEGIN PRIVATE KEY/i,
 ];
 
 /** パスプレフィックスから領域ヒントを得る */

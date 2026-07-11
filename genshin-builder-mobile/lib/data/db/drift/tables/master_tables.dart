@@ -45,6 +45,7 @@ class CharacterUpgrades extends Table {
   TextColumn get characterId => text()();
   TextColumn get promotes => text()();
   TextColumn get talents => text()();
+  TextColumn get contentHash => text().withDefault(const Constant(''))();
   IntColumn get syncedAt => integer()();
 
   @override
@@ -56,6 +57,7 @@ class WeaponUpgrades extends Table {
   TextColumn get promotes => text()();
   TextColumn get levelUpItemIds =>
       text().withDefault(const Constant('[]'))();
+  TextColumn get contentHash => text().withDefault(const Constant(''))();
   IntColumn get syncedAt => integer()();
 
   @override

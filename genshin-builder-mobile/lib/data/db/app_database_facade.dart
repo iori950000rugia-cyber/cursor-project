@@ -92,6 +92,9 @@ class AppDatabase {
   Future<Set<String>> getSyncedCharacterUpgradeIds() =>
       _inner.characterDao.getSyncedCharacterUpgradeIds();
 
+  Future<Map<String, String>> getCharacterUpgradeHashes() =>
+      _inner.characterDao.getCharacterUpgradeHashes();
+
   Future<void> upsertWeaponUpgrade({
     required String weaponId,
     required List<PromoteStage> promotes,
@@ -119,6 +122,9 @@ class AppDatabase {
   Future<Set<String>> getSyncedWeaponUpgradeIds() =>
       _inner.characterDao.getSyncedWeaponUpgradeIds();
 
+  Future<Map<String, String>> getWeaponUpgradeHashes() =>
+      _inner.characterDao.getWeaponUpgradeHashes();
+
   Future<int> countExpMaterials() => _inner.characterDao.countExpMaterials();
 
   Future<void> updateMaterialExp({
@@ -137,6 +143,9 @@ class AppDatabase {
 
   Future<void> upsertLevelExpSegments(List<LevelExpSegment> segments) =>
       _inner.characterDao.upsertLevelExpSegments(segments);
+
+  Future<List<LevelExpSegment>> getAllLevelExpSegments() =>
+      _inner.characterDao.getAllLevelExpSegments();
 
   List<LevelExpSegment> buildLevelExpSegments() =>
       _inner.characterDao.buildLevelExpSegments();

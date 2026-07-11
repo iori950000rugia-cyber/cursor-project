@@ -1,9 +1,11 @@
 import '../models/master_models.dart';
 
-/// 素材シリーズ種別（将来: 聖遺物秘境・週ボス等を追加）
+/// 素材シリーズ種別
 enum DailyMaterialKind {
   talentBook,
   weaponAscension,
+  artifactDomain,
+  weeklyBoss,
 }
 
 /// 残り必要数の表示状態
@@ -76,15 +78,21 @@ class DailyMaterialSchedule {
     required this.version,
     required this.talentSeries,
     required this.weaponSeries,
+    this.artifactSeries = const [],
+    this.weeklyBossSeries = const [],
   });
 
   final int version;
   final List<DailyMaterialSeries> talentSeries;
   final List<DailyMaterialSeries> weaponSeries;
+  final List<DailyMaterialSeries> artifactSeries;
+  final List<DailyMaterialSeries> weeklyBossSeries;
 
   Iterable<DailyMaterialSeries> get allSeries sync* {
     yield* talentSeries;
     yield* weaponSeries;
+    yield* artifactSeries;
+    yield* weeklyBossSeries;
   }
 
   List<DailyMaterialSeries> seriesForDay(
@@ -120,10 +128,25 @@ class DailyMaterialSchedule {
               DailyMaterialSeries.fromJson(e, DailyMaterialKind.weaponAscension),
         )
         .toList(growable: false);
+    final artifact = (json['artifactSeries'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(
+          (e) =>
+              DailyMaterialSeries.fromJson(e, DailyMaterialKind.artifactDomain),
+        )
+        .toList(growable: false);
+    final weekly = (json['weeklyBossSeries'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(
+          (e) => DailyMaterialSeries.fromJson(e, DailyMaterialKind.weeklyBoss),
+        )
+        .toList(growable: false);
     return DailyMaterialSchedule(
       version: (json['version'] as num?)?.toInt() ?? 1,
       talentSeries: talent,
       weaponSeries: weapon,
+      artifactSeries: artifact,
+      weeklyBossSeries: weekly,
     );
   }
 }
@@ -268,11 +291,19 @@ class DailyMaterialsPlan {
     required this.weekday,
     required this.talentCards,
     required this.weaponCards,
+    this.artifactCards = const [],
+    this.weeklyBossCards = const [],
   });
 
   final int weekday;
   final List<DailyMaterialSeriesCardData> talentCards;
   final List<DailyMaterialSeriesCardData> weaponCards;
+  final List<DailyMaterialSeriesCardData> artifactCards;
+  final List<DailyMaterialSeriesCardData> weeklyBossCards;
 
-  bool get isEmpty => talentCards.isEmpty && weaponCards.isEmpty;
+  bool get isEmpty =>
+      talentCards.isEmpty &&
+      weaponCards.isEmpty &&
+      artifactCards.isEmpty &&
+      weeklyBossCards.isEmpty;
 }

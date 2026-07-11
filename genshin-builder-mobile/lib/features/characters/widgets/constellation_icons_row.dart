@@ -3,22 +3,27 @@ import 'package:flutter/material.dart';
 import '../../../domain/models/amber_detail_models.dart';
 import '../../shared/game_icon_image.dart';
 
-/// Constellation icon row (1-6). Tap for effect details.
+/// 命ノ星座アイコン行（1–6）。タップで凸数を設定、長押しで効果詳細。
 class ConstellationIconsRow extends StatelessWidget {
   const ConstellationIconsRow({
     super.key,
     required this.unlockedCount,
     required this.elementColor,
     this.constellations = const [],
+    this.onConstellationSelected,
     this.iconSize = 22,
     this.spacing = 4,
   });
 
-  /// 取得済み凸数（0〜6）。表示状態。API 値とは呼び出し側で分離する。
+  /// 表示用凸数（0〜6）
   final int unlockedCount;
 
   final Color elementColor;
   final List<ConstellationDetailData> constellations;
+
+  /// 指定時: タップで凸数を変更（1〜6）。0 に戻すには同じ凸を再タップ。
+  final ValueChanged<int>? onConstellationSelected;
+
   final double iconSize;
   final double spacing;
 
@@ -36,6 +41,12 @@ class ConstellationIconsRow extends StatelessWidget {
             elementColor: elementColor,
             size: iconSize,
             detail: i <= constellations.length ? constellations[i - 1] : null,
+            onSelect: onConstellationSelected == null
+                ? null
+                : () {
+                    final next = count == i ? i - 1 : i;
+                    onConstellationSelected!(next.clamp(0, 6));
+                  },
           ),
         ],
       ],
@@ -50,6 +61,7 @@ class _ConstellationIconButton extends StatelessWidget {
     required this.elementColor,
     required this.size,
     this.detail,
+    this.onSelect,
   });
 
   final int position;
@@ -57,6 +69,7 @@ class _ConstellationIconButton extends StatelessWidget {
   final Color elementColor;
   final double size;
   final ConstellationDetailData? detail;
+  final VoidCallback? onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -64,9 +77,12 @@ class _ConstellationIconButton extends StatelessWidget {
     final dimColor = theme.colorScheme.onSurface.withValues(alpha: 0.28);
 
     return Tooltip(
-      message: '命ノ星座 第$position重',
+      message: onSelect == null
+          ? '命ノ星座 第$position重'
+          : 'タップで凸$position（再タップで戻す）· 長押しで効果',
       child: InkWell(
-        onTap: () => _showDetail(context),
+        onTap: onSelect ?? () => _showDetail(context),
+        onLongPress: onSelect == null ? null : () => _showDetail(context),
         customBorder: const CircleBorder(),
         child: SizedBox(
           width: size + 4,
@@ -98,73 +114,32 @@ class _ConstellationIconButton extends StatelessWidget {
     final theme = Theme.of(context);
     final name = detail?.name;
     final description = detail?.description;
-
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  if (detail?.iconUrl != null) ...[
-                    ColorFiltered(
-                      colorFilter: ColorFilter.mode(
-                        unlocked ? elementColor : theme.colorScheme.onSurface,
-                        BlendMode.srcATop,
-                      ),
-                      child: GameIconImage(
-                        iconUrl: detail!.iconUrl,
-                        size: 40,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                  ],
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '命ノ星座 第$position重',
-                          style: theme.textTheme.titleMedium,
-                        ),
-                        Text(
-                          unlocked ? '取得済み' : '未解放',
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: unlocked
-                                ? elementColor
-                                : theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text('効果名', style: theme.textTheme.labelLarge),
-              const SizedBox(height: 4),
-              Text(
-                (name == null || name.isEmpty) ? '（名称未取得）' : name,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: theme.colorScheme.primary,
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name?.isNotEmpty == true
+                      ? name!
+                      : '命ノ星座 第$position重',
+                  style: theme.textTheme.titleMedium,
                 ),
-              ),
-              const SizedBox(height: 12),
-              Text('効果説明', style: theme.textTheme.labelLarge),
-              const SizedBox(height: 4),
-              Text(
-                (description == null || description.isEmpty)
-                    ? '効果説明を取得できませんでした。ネットワーク接続を確認するか、画面を開き直してください。'
-                    : description,
-                style: theme.textTheme.bodyMedium,
-              ),
-            ],
+                const SizedBox(height: 12),
+                Text(
+                  description?.isNotEmpty == true
+                      ? description!
+                      : '効果テキストを取得できませんでした。',
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ],
+            ),
           ),
         );
       },

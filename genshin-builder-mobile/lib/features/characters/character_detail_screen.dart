@@ -264,6 +264,7 @@ class _CharacterDetailScreenState extends ConsumerState<CharacterDetailScreen>
             character: character,
             level: detail.level,
             constellation: detail.constellation,
+            onConstellationChanged: notifier.updateConstellation,
           ),
           Material(
             color: Theme.of(context).colorScheme.surface,
@@ -310,6 +311,7 @@ class _CharacterDetailScreenState extends ConsumerState<CharacterDetailScreen>
                 resolvedArtifactScoreType: detail.resolvedArtifactScoreType,
                 artifactScoreWeights: detail.artifactScoreWeights,
                 artifactScoreTypeUserSet: detail.artifactScoreTypeUserSet,
+                artifactCompleted: detail.artifactCompleted,
                 bookmarkCtx: bookmarkCtx,
                 weaponBookmarkCtx: weaponBookmarkCtx,
                 rangeLines: rangeLines,
@@ -329,6 +331,7 @@ class _CharacterDetailScreenState extends ConsumerState<CharacterDetailScreen>
                 onTargetWeaponLevelChanged: notifier.updateTargetWeaponLevel,
                 onArtifactsChanged: notifier.updateArtifacts,
                 onArtifactScoreTypeChanged: notifier.updateArtifactScoreType,
+                onArtifactCompletedChanged: notifier.updateArtifactCompleted,
                 onResetToFetched: () =>
                     unawaited(_confirmResetToFetched(detail)),
                 snapshotFromCurrent: detail.snapshotFromCurrent,

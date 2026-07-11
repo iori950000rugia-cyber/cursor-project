@@ -1,0 +1,32 @@
+---
+description: セキュリティ関連作業時に genshin-security-checklist を自動読込し、読む前に宣言する
+alwaysApply: true
+---
+
+# genshin-security-checklist 自動読込
+
+次のいずれかに該当する作業の**着手時**（コードを書く・レビューする・調査する前）:
+
+- セキュリティ / 脆弱性 / 秘密情報 / Cookie / SecureStorage / 認証
+- HoYoLAB / ltoken / WebView ログイン
+- Android リリース（Manifest・backup・ProGuard・署名・obfuscate）
+- CI secret ガード / `.env` / keystore
+- Web `/api`・同期 API・レート制限
+- ユーザーがセキュリティ確認・リリース前チェックを依頼
+
+## 必須手順
+
+1. **先にユーザーへ宣言する**（ツール呼び出しの前）:
+   - 日本語: `genshin-security-checklist を読みます`
+   - `reference.md` も読む場合: `genshin-security-checklist の reference を読みます`
+2. Read ツールで読む:
+   - `.cursor/skills/genshin-security-checklist/SKILL.md`
+   - 必要時のみ `.cursor/skills/genshin-security-checklist/reference.md`
+3. チェックリストに従って作業する
+
+## 禁止
+
+- 宣言なしで当該 Skill を読むこと
+- 該当作業なのに Skill を読まずに進めること
+
+無関係な作業（UI 文言のみ、純ドメイン計算のテスト追加など）では読まなくてよい。

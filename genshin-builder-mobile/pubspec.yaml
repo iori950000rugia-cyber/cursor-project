@@ -15,8 +15,10 @@ dependencies:
   http: ^1.3.0
   # Drift（sqflite は削除済み — DB パスは database_path.dart）
   drift: ^2.22.1
-  drift_flutter: ^0.2.4
-  sqlite3_flutter_libs: ^0.5.28
+  # sqlite3_flutter_libs と同時依存不可（同一 Android namespace）。SQLCipher 単体で平文も開ける。
+  # drift_flutter は sqlite3_flutter_libs を引き込むため未使用で外す（NativeDatabase 直結）。
+  sqlcipher_flutter_libs: 0.6.4
+  sqlite3: 2.9.4
   path: ^1.9.1
   path_provider: ^2.1.5
   cached_network_image: ^3.4.1
@@ -41,3 +43,5 @@ flutter:
     - assets/config/artifact_score_weights.json
     - assets/config/artifact_score_type_overrides.json
     - assets/config/daily_material_schedule.json
+    - assets/config/level_exp_table.json
+    - assets/config/artifact_set_recommendations.json

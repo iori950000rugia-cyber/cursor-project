@@ -122,6 +122,20 @@ void main() {
       expect(stats[StatKey.er], 100.0);
     });
 
+    test('applies 2-piece set effect ATK%', () {
+      final artifacts = blankArtifacts();
+      final stats = computeCharacterStats(
+        avatarStats: avatarStats,
+        element: 'pyro',
+        level: 1,
+        ascension: 0,
+        artifacts: artifacts,
+        activeSetEffects: const ['攻撃力+18%'],
+      );
+      // base atk 100 * 1.18 = 118
+      expect(stats[StatKey.atk], 118);
+    });
+
     test('ascension 0 has no promote bonus', () {
       final stats = computeCharacterStats(
         avatarStats: avatarStats,

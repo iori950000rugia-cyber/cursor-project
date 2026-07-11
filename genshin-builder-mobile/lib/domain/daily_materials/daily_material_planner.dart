@@ -330,16 +330,21 @@ DailyMaterialsPlan buildDailyMaterialsPlan({
   final materialIndex = schedule.buildMaterialIndex();
   final talentBySeries = <String, List<DailyMaterialConsumer>>{};
   final weaponBySeries = <String, List<DailyMaterialConsumer>>{};
+  final weeklyBySeries = <String, List<DailyMaterialConsumer>>{};
 
   for (final entry in characters) {
-    final seriesIds = <String>{};
+    final talentSeriesIds = <String>{};
+    final weeklySeriesIds = <String>{};
     for (final materialId in entry.talentMaterialIds) {
       final series = materialIndex[materialId];
-      if (series != null && series.kind == DailyMaterialKind.talentBook) {
-        seriesIds.add(series.id);
+      if (series == null) continue;
+      if (series.kind == DailyMaterialKind.talentBook) {
+        talentSeriesIds.add(series.id);
+      } else if (series.kind == DailyMaterialKind.weeklyBoss) {
+        weeklySeriesIds.add(series.id);
       }
     }
-    for (final seriesId in seriesIds) {
+    for (final seriesId in talentSeriesIds) {
       final rem = _talentRemainingForSeries(
         seriesId: seriesId,
         materialIndex: materialIndex,
@@ -347,6 +352,28 @@ DailyMaterialsPlan buildDailyMaterialsPlan({
         talentTargetLevel: talentTargetLevel,
       );
       talentBySeries.putIfAbsent(seriesId, () => []).add(
+            DailyMaterialConsumer(
+              id: entry.character.id,
+              name: entry.character.name,
+              iconUrl: entry.character.iconUrl,
+              remainingStatus: rem.status,
+              remainingCount: rem.count,
+              remainingByMaterialId: rem.byMaterial,
+              nextStageByMaterialId: rem.nextByMaterial,
+              isOwned: entry.isOwned,
+              isBuilding: entry.isBuilding,
+              rarity: entry.character.rarity,
+            ),
+          );
+    }
+    for (final seriesId in weeklySeriesIds) {
+      final rem = _talentRemainingForSeries(
+        seriesId: seriesId,
+        materialIndex: materialIndex,
+        entry: entry,
+        talentTargetLevel: talentTargetLevel,
+      );
+      weeklyBySeries.putIfAbsent(seriesId, () => []).add(
             DailyMaterialConsumer(
               id: entry.character.id,
               name: entry.character.name,
@@ -414,9 +441,12 @@ DailyMaterialsPlan buildDailyMaterialsPlan({
           MasterMaterial(
             id: id,
             name: id,
-            category: kind == DailyMaterialKind.talentBook
-                ? 'characterTalentMaterial'
-                : 'weaponAscensionMaterial',
+            category: switch (kind) {
+              DailyMaterialKind.talentBook => 'characterTalentMaterial',
+              DailyMaterialKind.weaponAscension => 'weaponAscensionMaterial',
+              DailyMaterialKind.artifactDomain => 'artifact',
+              DailyMaterialKind.weeklyBoss => 'characterTalentMaterial',
+            },
             iconUrl: '',
           ),
         );
@@ -469,16 +499,20 @@ DailyMaterialsPlan buildDailyMaterialsPlan({
 
   List<DailyMaterialSeriesCardData> cardsFor(DailyMaterialKind kind) {
     final available = schedule.seriesForDay(weekday, kind: kind);
-    final source =
-        kind == DailyMaterialKind.talentBook ? talentBySeries : weaponBySeries;
+    final Map<String, List<DailyMaterialConsumer>> source = switch (kind) {
+      DailyMaterialKind.talentBook => talentBySeries,
+      DailyMaterialKind.weaponAscension => weaponBySeries,
+      DailyMaterialKind.artifactDomain => const {},
+      DailyMaterialKind.weeklyBoss => weeklyBySeries,
+    };
     final cards = <DailyMaterialSeriesCardData>[];
     for (final series in available) {
       final consumers = List<DailyMaterialConsumer>.from(
         source[series.id] ?? const [],
       );
-      final groups = kind == DailyMaterialKind.talentBook
-          ? talentGroups(consumers)
-          : weaponGroups(consumers);
+      final groups = kind == DailyMaterialKind.weaponAscension
+          ? weaponGroups(consumers)
+          : talentGroups(consumers);
       final byMaterial = <String, int>{};
       final nextByMaterial = <String, int>{};
       for (final c in consumers) {
@@ -512,5 +546,7 @@ DailyMaterialsPlan buildDailyMaterialsPlan({
     weekday: weekday,
     talentCards: cardsFor(DailyMaterialKind.talentBook),
     weaponCards: cardsFor(DailyMaterialKind.weaponAscension),
+    artifactCards: cardsFor(DailyMaterialKind.artifactDomain),
+    weeklyBossCards: cardsFor(DailyMaterialKind.weeklyBoss),
   );
 }

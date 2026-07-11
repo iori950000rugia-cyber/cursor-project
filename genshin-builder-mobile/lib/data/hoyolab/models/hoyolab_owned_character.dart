@@ -54,7 +54,10 @@ class HoyolabOwnedCharacter {
 
   factory HoyolabOwnedCharacter.fromSummaryJson(Map<String, dynamic> json) {
     final weaponRaw = json['weapon'] as Map<String, dynamic>?;
-    final relicsRaw = json['reliquaries'] as List<dynamic>? ?? [];
+    final relicsRaw = json['reliquaries'] as List<dynamic>? ??
+        json['relics'] as List<dynamic>? ??
+        json['reliquary_list'] as List<dynamic>? ??
+        [];
     return HoyolabOwnedCharacter(
       id: '${json['id'] ?? ''}',
       name: json['name'] as String? ?? '',

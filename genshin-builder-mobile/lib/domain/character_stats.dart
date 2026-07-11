@@ -7,9 +7,10 @@
 ///   3. 聖遺物メインステータス（★5 のレベル別数値を線形補間）
 ///   4. 聖遺物サブステータス（入力値）
 ///
-/// セット効果・武器効果（パッシブ）は対象外（UI 側で明記する）。
+/// セット効果・武器パッシブは呼び出し側で [activeSetEffects] を渡す（2セット常時補正のみ）。
 library;
 
+import 'models/amber_detail_models.dart';
 import 'models/artifact_state.dart';
 
 // ---------------------------------------------------------
@@ -280,6 +281,11 @@ const _kanjiElementMap = <String, String>{
 
 final _elemDmgPattern = RegExp(r'^(炎|水|雷|氷|風|岩|草)元素ダメージ$');
 
+/// セット効果テキストから常時補正を抽出（Web `SET_EFFECT_PATTERN` 相当）
+final _setEffectPattern = RegExp(
+  r'(シールド強化|与える治療効果|元素チャージ効率|元素熟知|会心率|会心ダメージ|攻撃力|防御力|HP|物理ダメージ|(?:炎|水|雷|氷|風|岩|草)元素ダメージ)\+([\d.]+)(%?)',
+);
+
 /// ステータス名（日本語ラベル）をバケットへ加算する
 void _applyNamedStat(String stat, double value, _StatBucket bucket) {
   switch (stat) {
@@ -316,6 +322,50 @@ void _applyNamedStat(String stat, double value, _StatBucket bucket) {
   }
 }
 
+/// セット効果の説明文から常時有効なステータス補正を加算する（Web 同等）
+void _applySetEffectText(String text, _StatBucket bucket) {
+  for (final match in _setEffectPattern.allMatches(text)) {
+    final statName = match.group(1)!;
+    final value = double.tryParse(match.group(2) ?? '');
+    if (value == null) continue;
+    final percent = match.group(3) ?? '';
+
+    if (statName == 'シールド強化') {
+      bucket.shield += value;
+    } else if (statName == 'HP' ||
+        statName == '攻撃力' ||
+        statName == '防御力') {
+      if (percent == '%') {
+        _applyNamedStat('$statName%', value, bucket);
+      }
+    } else {
+      _applyNamedStat(statName, value, bucket);
+    }
+  }
+}
+
+/// 装備中セットの2セット効果テキスト（2個以上装備）を解決する
+List<String> resolveActiveTwoPieceSetEffects({
+  required ArtifactState artifacts,
+  required List<ArtifactSetDetail> sets,
+}) {
+  final counts = <String, int>{};
+  for (final piece in artifacts.values) {
+    final name = piece.setName.trim();
+    if (name.isEmpty) continue;
+    counts[name] = (counts[name] ?? 0) + 1;
+  }
+  final byName = {for (final s in sets) s.name: s};
+  final effects = <String>[];
+  for (final entry in counts.entries) {
+    if (entry.value < 2) continue;
+    final set = byName[entry.key];
+    if (set == null || set.effects.isEmpty) continue;
+    effects.add(set.effects.first);
+  }
+  return effects;
+}
+
 // ---------------------------------------------------------
 // メイン計算
 // ---------------------------------------------------------
@@ -330,6 +380,7 @@ StatValues computeCharacterStats({
   required int ascension,
   WeaponLevelStats? weapon,
   required ArtifactState artifacts,
+  List<String> activeSetEffects = const [],
 }) {
   final bucket = _StatBucket();
 
@@ -394,6 +445,11 @@ StatValues computeCharacterStats({
     for (final sub in piece.substats) {
       _applyNamedStat(sub.stat, sub.value, bucket);
     }
+  }
+
+  // 5. セット効果（2セットの常時補正テキスト）
+  for (final text in activeSetEffects) {
+    _applySetEffectText(text, bucket);
   }
 
   return {

@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "description": "曜日別の天賦本・武器突破素材スケジュール。days は ISO 曜日（1=月 … 7=日）。日曜は全シリーズ入手可。",
   "talentSeries": [
     {"id": "freedom", "name": "自由", "region": "モンド", "days": [1, 4], "materialIds": ["104301", "104302", "104303"]},
@@ -46,5 +46,16 @@
     {"id": "artful_device", "name": "奇妙な装置", "region": "ノド・クライ", "days": [1, 4], "materialIds": ["114073", "114074", "114075", "114076"]},
     {"id": "long_night", "name": "長夜の灯火", "region": "ノド・クライ", "days": [2, 5], "materialIds": ["114077", "114078", "114079", "114080"]},
     {"id": "far_north", "name": "極北の末裔", "region": "ノド・クライ", "days": [3, 6], "materialIds": ["114081", "114082", "114083", "114084"]}
+  ],
+  "artifactSeries": [
+    {"id": "domain_finishing_touch", "name": "フィニッシングタッチ（華館・追憶）", "region": "稲妻", "days": [1, 2, 3, 4, 5, 6], "materialIds": ["755000", "755001"]},
+    {"id": "domain_city_of_gold", "name": "黄金の都（砂上・楽園）", "region": "スメール", "days": [1, 2, 3, 4, 5, 6], "materialIds": ["755010", "755011"]},
+    {"id": "domain_watery_dream", "name": "水仙十字（黄金劇団・追憶）", "region": "フォンテーヌ", "days": [1, 2, 3, 4, 5, 6], "materialIds": ["755020", "755021"]}
+  ],
+  "weeklyBossSeries": [
+    {"id": "stormterror", "name": "風魔龍・トワリン", "region": "モンド", "days": [1, 2, 3, 4, 5, 6], "materialIds": ["113001", "113002", "113003"]},
+    {"id": "childe", "name": "公子", "region": "璃月", "days": [1, 2, 3, 4, 5, 6], "materialIds": ["113013", "113014", "113015"]},
+    {"id": "raiden", "name": "雷電将軍", "region": "稲妻", "days": [1, 2, 3, 4, 5, 6], "materialIds": ["113029", "113030", "113031"]},
+    {"id": "scaramouche", "name": "正機の神", "region": "スメール", "days": [1, 2, 3, 4, 5, 6], "materialIds": ["113044", "113045", "113046"]}
   ]
 }

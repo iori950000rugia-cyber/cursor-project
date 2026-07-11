@@ -55,6 +55,7 @@ class LoadCharacterDetailUseCase {
       talentSkill: progress.talentSkill,
       talentBurst: progress.talentBurst,
       artifacts: progress.artifacts,
+      artifactCompleted: progress.artifactCompleted,
       loading: false,
       clearError: true,
     );

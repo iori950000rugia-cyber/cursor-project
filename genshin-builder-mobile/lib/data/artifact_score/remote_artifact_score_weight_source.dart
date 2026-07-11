@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../config/config_validators.dart';
 import 'artifact_score_weight.dart';
 import 'artifact_score_weight_source.dart';
 
@@ -28,6 +29,7 @@ class RemoteArtifactScoreWeightSource
       throw Exception('artifact score weights remote error: ${response.statusCode}');
     }
     final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    validateArtifactScoreWeightsJson(decoded);
     final list = (decoded['profiles'] as List<dynamic>? ?? [])
         .whereType<Map<String, dynamic>>()
         .map(ArtifactScoreWeightProfile.fromJson)

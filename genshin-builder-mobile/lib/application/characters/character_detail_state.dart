@@ -37,6 +37,7 @@ class CharacterDetailState {
     this.resolvedArtifactScoreType = ArtifactScoreType.atk,
     required this.artifactScoreWeights,
     this.artifactScoreTypeUserSet = false,
+    this.artifactCompleted = false,
   });
 
   factory CharacterDetailState.initial() => CharacterDetailState(
@@ -72,6 +73,9 @@ class CharacterDetailState {
   final ArtifactScoreType resolvedArtifactScoreType;
   final ArtifactStatWeights artifactScoreWeights;
   final bool artifactScoreTypeUserSet;
+
+  /// 聖遺物育成完了チェック（ユーザー手動）
+  final bool artifactCompleted;
 
   CharacterBuildSnapshot snapshotFromCurrent() => CharacterBuildSnapshot(
         level: level,
@@ -116,6 +120,7 @@ class CharacterDetailState {
     ArtifactScoreType? resolvedArtifactScoreType,
     ArtifactStatWeights? artifactScoreWeights,
     bool? artifactScoreTypeUserSet,
+    bool? artifactCompleted,
   }) =>
       CharacterDetailState(
         loading: loading ?? this.loading,
@@ -150,5 +155,6 @@ class CharacterDetailState {
             artifactScoreWeights ?? this.artifactScoreWeights,
         artifactScoreTypeUserSet:
             artifactScoreTypeUserSet ?? this.artifactScoreTypeUserSet,
+        artifactCompleted: artifactCompleted ?? this.artifactCompleted,
       );
 }

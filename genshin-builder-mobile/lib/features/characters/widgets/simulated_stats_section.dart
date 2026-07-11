@@ -53,10 +53,17 @@ class SimulatedStatsSection extends ConsumerWidget {
       );
     }
 
+    final setsAsync = ref.watch(artifactSetsProvider);
+    final sets = setsAsync.valueOrNull ?? const [];
+
     StatValues compute(
       CharacterBuildSnapshot snapshot,
       WeaponStatsData? weaponStats,
     ) {
+      final activeSetEffects = resolveActiveTwoPieceSetEffects(
+        artifacts: snapshot.artifacts,
+        sets: sets,
+      );
       return computeCharacterStats(
         avatarStats: avatarStats,
         element: character.element,
@@ -64,6 +71,7 @@ class SimulatedStatsSection extends ConsumerWidget {
         ascension: getAscensionForLevel(snapshot.level, promotes),
         weapon: weaponStats?.statsAtLevel(snapshot.weaponLevel),
         artifacts: snapshot.artifacts,
+        activeSetEffects: activeSetEffects,
       );
     }
 
@@ -144,7 +152,7 @@ class SimulatedStatsSection extends ConsumerWidget {
             ),
           ),
         Text(
-          '※ 聖遺物セット効果・武器効果（パッシブ）・天賦による補正は計算に含まれません。',
+          '※ 基礎・武器・聖遺物・2セット効果の合算。条件付き4セット・武器パッシブ・天賦補正は含みません。',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -167,7 +175,7 @@ class _BuildSummaryRow extends StatelessWidget {
         ? '武器なし'
         : '${snapshot.weaponName} Lv.${snapshot.weaponLevel}';
     return Text(
-      '$label: Lv.${snapshot.level} · $weapon · '
+      '$label: Lv.${snapshot.level} · 凸${snapshot.constellation} · $weapon · '
       '天賦 ${snapshot.talentNormal}/${snapshot.talentSkill}/${snapshot.talentBurst}',
       style: theme.textTheme.bodySmall?.copyWith(
         color: theme.colorScheme.onSurfaceVariant,

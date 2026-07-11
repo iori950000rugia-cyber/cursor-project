@@ -2,6 +2,47 @@
 
 セッションごとの設計判断ログ。重要な決定のみ追記する。
 
+## 2026-07-11 — 聖遺物一覧 UI（グリッド＋詳細ダイアログ）
+
+- 一覧は地域セクション付き `GridView`（幅で 3/4/5/6 列）。セルはアイコン＋セット名
+- アイコン URL は `UI_RelicIcon_*` → `assets/UI/reliquary/`（直下は 404）
+- 地域は Amber `sortOrder` 帯 + 層岩例外。API に region が無いため
+- 装備キャラ: **`/character/detail` の relics が正本**（`/character/list` は装備なし）。進捗 JSON はフォールバック。突合はアイコン ID → 名前/route/aliases。2部位以上のみ
+- 所持ビルドは最大40件バッチ＋TTLキャッシュ。HoYoLAB 反映は即保存（debounce 破棄対策）
+
+
+## 2026-07-11 — 聖遺物管理（育成完了・完成率・セット一覧）
+
+- **育成完了**: 既存 `user_progress.is_completed` を `UserProgress.artifactCompleted` として利用（新テーブルなし）。キャラ詳細聖遺物タブでチェック、オフライン永続
+- **完成率**: `domain/artifact_completion.dart` で計算のみ（装備/Lv/メイン/サブ/スコア）。DB には保存しない
+- **装備紐づけ**: `/character/detail` relics を主、所持 list / 進捗 `artifacts` を副
+
+- **セット一覧**: Amber `ArtifactSetDetail` + `/artifacts` タブ。推奨は `assets/config/artifact_set_recommendations.json`（名前キー）
+- **ナビ**: ホーム/キャラ/曜日/聖遺物/素材/設定（曜日は維持）
+
+## 2026-07-11 — contentHash / Level EXP JSON / 設定検証 / SQLCipher / hook 強化
+
+- **突破 contentHash**: `CharacterUpgrades` / `WeaponUpgrades` に `contentHash`（schema v6）。upsert 時に promotes+talents（武器は levelUpItemIds）の MD5 を保存。通常同期は未取得・空ハッシュ UNION、加えて `refreshStaleUpgrades`（既定 true）で各最大 15 件ランダム再取得。設定画面に注記
+- **Level EXP**: 正本 `assets/config/level_exp_table.json` + `LevelExpTableSource`。同期は asset → DB。`getAllLevelExpSegments` 追加。計算は従来どおり `UpgradeDataCache.levelExpSegments` 優先
+- **設定検証**: `config_validators.dart` を remote source の `fromJson` 前に呼ぶ。`tool/validate_config_json.dart` + `assets/config/schemas/*.schema.json`
+- **SQLCipher**: `sqlcipher_flutter_libs` のみ（`sqlite3_flutter_libs` は外した）。`ENABLE_SQLCIPHER=true` 時のみ PRAGMA key。既定 false で平文 DB 維持。`docs/DB_ENCRYPTION.md`
+- **auto-commit**: `EXCLUDE_PATTERNS` / `SECRET_PATTERNS` 強化。pending に `files[]`。最大 40 ファイルでスキップ。diff に ltoken/cookie/PRIVATE KEY があれば中止
+- **docs**: `DAILY_MATERIAL_SCHEDULE_REMOTE.md`（URL 設定手順）
+
+## 2026-07-11 — 機能拡張 1–10（本番 applicationId 除く）
+
+- **1** 想定ステータスに2セット効果（Web 同等テキスト抽出）
+- **2** 命ノ星座タップで凸シミュ（再タップで戻す・長押しで効果）
+- **3** 曜日素材に聖遺物秘境・週ボス（スケジュール + 週ボスは天賦コスト紐づけ）
+- **4** `docs/DAILY_MATERIAL_SCHEDULE_REMOTE.md`（`DAILY_MATERIAL_SCHEDULE_URL`）
+- **5** 突破 `contentHash` + 同期時の stale 再取得（最大15件）
+- **6** `assets/config/level_exp_table.json` を正本に
+- **7** リモート設定の `config_validators` + `tool/validate_config_json.dart`
+- **8** 本番 applicationId — **後回し**（未公開）
+- **9** SQLCipher は `ENABLE_SQLCIPHER` オプトイン（既定オフ）`docs/DB_ENCRYPTION.md`
+- **10** auto-commit: 除外強化・touched files・件数上限・秘密スキャン
+- **11–13** Team / Damage / Cloud — プラン確定後
+
 ## 2026-07-11 — マスタ同期の自動更新対応
 
 - **現状解析**: Amber 一覧は毎回 upsert。突破は **未取得 ID のみ**（`fullUpgrade` は未配線だった）。起動同期は初回のみ。曜日スケジュールは asset 固定。
@@ -11,7 +52,7 @@
   - 設定: 「完全再同期」で `fullUpgrade: true`（突破全件再取得）
   - `getLastSyncTime` は `success` + `partial` を対象
   - 曜日スケジュール: `DAILY_MATERIAL_SCHEDULE_URL`（dart-define）でリモート JSON。`version` がローカル以上なら採用
-- **残課題（手動/将来）**: レベル EXP 表のハードコード、新天賦本シリーズの JSON 追記（リモート未設定時）、既存突破行の差分検知（件数一致時はプローブでは検知不可 → 完全再同期）
+- **残課題（手動/将来）**: 新天賦本シリーズの JSON 追記（リモート未設定時）。既存突破の全件差分は contentHash サンプル再取得 + 完全再同期でカバー
 - **恒久ルール**: 機能追加時は Sync 連携必須（`.cursor/rules/genshin-master-sync-extensibility.mdc` + `AGENTS.md` §8）
 
 ## 2026-07-11 — 拡張アーキテクチャ P0–P3
@@ -28,7 +69,9 @@
 - **HoYoLAB**: 全 HTTP に 25s timeout。cookie は `verifyLToken` + ロール取得成功後のみ SecureStorage へ
 - **エラー**: `core/errors/user_facing_error.dart` でユーザー文言と debug ログを分離。生 `$e` 表示を除去
 - **CI**: mobile CI に簡易 secret ガード、release 例に `--obfuscate --split-debug-info`
-- **未実施（次段階）**: applicationId 本番化、JSON スキーマ検証、SQLCipher、Agent auto-commit 強化
+- **未実施（次段階）**: applicationId 本番化。SQLCipher を本番常時 ON にする場合のネイティブ衝突確認・平文→暗号マイグレーション
+- **起用**: プロジェクト Skill `.cursor/skills/genshin-security-checklist/`
+- **自動読込**: `.cursor/rules/genshin-security-checklist.mdc`（alwaysApply）。Read 前に「genshin-security-checklist を読みます」と宣言
 
 ## 2026-07-11 — アーキテクチャ改善（段階実装）
 

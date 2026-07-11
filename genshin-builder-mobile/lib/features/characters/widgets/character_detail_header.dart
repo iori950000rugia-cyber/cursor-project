@@ -15,6 +15,7 @@ class CharacterDetailHeader extends ConsumerWidget {
     required this.character,
     required this.level,
     required this.constellation,
+    this.onConstellationChanged,
   });
 
   final MasterCharacter character;
@@ -24,6 +25,8 @@ class CharacterDetailHeader extends ConsumerWidget {
 
   /// 表示用凸数 0〜6（取得データと分離した表示状態）
   final int constellation;
+
+  final ValueChanged<int>? onConstellationChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -65,6 +68,7 @@ class CharacterDetailHeader extends ConsumerWidget {
                   unlockedCount: constellation,
                   elementColor: elementColor,
                   constellations: constellations,
+                  onConstellationSelected: onConstellationChanged,
                   iconSize: 18,
                   spacing: 2,
                 ),

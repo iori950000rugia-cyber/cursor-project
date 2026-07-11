@@ -297,15 +297,28 @@ class AmberDetailRepository {
                 .where((s) => s.isNotEmpty)
                 .toList();
         final icon = set['icon'] as String?;
+        final sortOrder = (set['sortOrder'] as num?)?.toInt() ?? 0;
+        final id = '${set['id']}';
+        final route = (set['route'] as String?)?.trim() ?? '';
         sets.add(
           ArtifactSetDetail(
-            id: '${set['id']}',
+            id: id,
             name: name,
             iconUrl: icon == null || icon.isEmpty ? null : buildIconUrl(icon),
             effects: effects,
+            region: resolveArtifactSetRegion(id: id, sortOrder: sortOrder),
+            sortOrder: sortOrder,
+            route: route,
           ),
         );
       }
+      sets.sort((a, b) {
+        final regionCmp = artifactSetRegionOrder
+                .indexOf(a.region)
+                .compareTo(artifactSetRegionOrder.indexOf(b.region));
+        if (regionCmp != 0) return regionCmp;
+        return a.sortOrder.compareTo(b.sortOrder);
+      });
       _artifactSetsCache = sets;
     } catch (_) {
       _artifactSetsCache = const [];
@@ -417,4 +430,9 @@ class AmberDetailRepository {
   }
 
   void dispose() => _api.dispose();
+
+  /// 聖遺物セット一覧キャッシュを破棄（再取得用）
+  void clearArtifactSetsCache() {
+    _artifactSetsCache = null;
+  }
 }

@@ -8,9 +8,13 @@
  *   node scripts/auto-commit/index.mjs --watch 30   # 30秒間隔で監視（デバウンス 8秒）
  *   node scripts/auto-commit/index.mjs --hook         # Cursor stop フック用
  */
-import { existsSync, unlinkSync, writeFileSync, mkdirSync } from "fs";
+import { existsSync, unlinkSync, writeFileSync, mkdirSync, readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
+import {
+  DIFF_SECRET_PATTERNS,
+  MAX_COMMIT_FILES,
+} from "./config.mjs";
 import {
   generateCommitMessage,
   shouldExclude,
@@ -80,6 +84,40 @@ function setFlag(reason) {
 }
 
 /**
+ * @returns {{ at?: string, files?: string[], file?: string, reason?: string } | null}
+ */
+function readPendingFlag() {
+  if (!existsSync(FLAG_PATH)) return null;
+  try {
+    const parsed = JSON.parse(readFileSync(FLAG_PATH, "utf8"));
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * @param {string[]} paths
+ * @returns {string | null} ヒットしたパターン説明、なければ null
+ */
+function findSecretInDiff(paths) {
+  if (paths.length === 0) return null;
+  const { ok, stdout } = runGit(REPO_ROOT, [
+    "diff",
+    "HEAD",
+    "--",
+    ...paths,
+  ]);
+  if (!ok || !stdout) return null;
+  for (const re of DIFF_SECRET_PATTERNS) {
+    if (re.test(stdout)) {
+      return re.source;
+    }
+  }
+  return null;
+}
+
+/**
  * @param {{ dryRun?: boolean, verbose?: boolean, requireFlag?: boolean }} opts
  * @returns {Promise<{ committed: boolean, message?: string, reason?: string }>}
  */
@@ -94,12 +132,34 @@ async function runOnce(opts = {}) {
     return { committed: false, reason: "no pending changes flag" };
   }
 
+  const pending = readPendingFlag();
+  const pendingFiles = Array.isArray(pending?.files)
+    ? pending.files.map((f) => String(f).replace(/\\/g, "/"))
+    : [];
+
   const changed = listChangedFiles(REPO_ROOT);
-  const committable = changed.filter((f) => !shouldExclude(f.path));
+  let committable = changed.filter((f) => !shouldExclude(f.path));
+
+  if (pendingFiles.length > 0) {
+    const pendingSet = new Set(pendingFiles.map((p) => p.toLowerCase()));
+    const preferred = committable.filter((f) =>
+      pendingSet.has(f.path.replace(/\\/g, "/").toLowerCase()),
+    );
+    if (preferred.length > 0) {
+      committable = preferred;
+    }
+  }
 
   if (committable.length === 0) {
     clearFlag();
     return { committed: false, reason: "no committable changes" };
+  }
+
+  if (committable.length > MAX_COMMIT_FILES) {
+    return {
+      committed: false,
+      reason: `too many files (${committable.length} > ${MAX_COMMIT_FILES}); skip auto-commit`,
+    };
   }
 
   const generated = generateCommitMessage(REPO_ROOT, committable);
@@ -110,6 +170,15 @@ async function runOnce(opts = {}) {
 
   const { message, files } = generated;
   const paths = files.map((f) => f.path);
+
+  const secretHit = findSecretInDiff(paths);
+  if (secretHit) {
+    return {
+      committed: false,
+      reason: `secret-like content in diff (${secretHit}); skip auto-commit`,
+      message,
+    };
+  }
 
   const recent = recentCommitSubjects(REPO_ROOT, 3);
   const subject = message.split("\n")[0];

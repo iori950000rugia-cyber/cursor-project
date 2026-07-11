@@ -27,6 +27,8 @@ const characterExpBetweenMarks = <String, int>{
   '70-80': 280800,
   '80-90': 393750,
 };
+// DB / 同期の正本は assets/config/level_exp_table.json（本マップはキャッシュ未使用時のフォールバック）
+
 
 const double weaponExpMultiplier = 1.5;
 

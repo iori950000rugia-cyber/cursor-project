@@ -84,6 +84,12 @@ class _WeaponChangeConfirmDialogState
       final build = widget.currentBuild;
       final ascension = getAscensionForLevel(build.level, widget.promotes);
 
+      final sets = await widget.repository.getArtifactSets();
+      final activeSetEffects = resolveActiveTwoPieceSetEffects(
+        artifacts: build.artifacts,
+        sets: sets,
+      );
+
       StatValues compute(WeaponStatsData? weaponStats) =>
           computeCharacterStats(
             avatarStats: avatarStats,
@@ -92,6 +98,7 @@ class _WeaponChangeConfirmDialogState
             ascension: ascension,
             weapon: weaponStats?.statsAtLevel(build.weaponLevel),
             artifacts: build.artifacts,
+            activeSetEffects: activeSetEffects,
           );
 
       final elementLabel =

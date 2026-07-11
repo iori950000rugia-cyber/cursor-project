@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../domain/daily_materials/daily_material_models.dart';
+import '../config/config_validators.dart';
 import 'daily_material_schedule_repository.dart';
 
 /// リモート JSON から曜日スケジュールを取得（`--dart-define=DAILY_MATERIAL_SCHEDULE_URL=`）
@@ -30,6 +31,7 @@ class RemoteDailyMaterialScheduleSource
       );
     }
     final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    validateDailyMaterialScheduleJson(decoded);
     return DailyMaterialSchedule.fromJson(decoded);
   }
 }

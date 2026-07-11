@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:math';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'secure_storage_keys.dart';
@@ -11,6 +14,8 @@ class SecureStorageService {
             );
 
   final FlutterSecureStorage _storage;
+
+  static final _random = Random.secure();
 
   Future<String?> read(String key) => _storage.read(key: key);
 
@@ -58,4 +63,16 @@ class SecureStorageService {
 
   Future<void> saveAppVersionOverride(String version) =>
       write(SecureStorageKeys.appVersion, version);
+
+  /// SQLCipher 用の DB 鍵を取得（無ければ生成して保存）。
+  /// 鍵そのものはログに出さないこと。
+  Future<String> getOrCreateDbKey() async {
+    final existing = await read(SecureStorageKeys.dbEncryptionKey);
+    if (existing != null && existing.isNotEmpty) return existing;
+
+    final bytes = List<int>.generate(32, (_) => _random.nextInt(256));
+    final key = base64UrlEncode(bytes);
+    await write(SecureStorageKeys.dbEncryptionKey, key);
+    return key;
+  }
 }

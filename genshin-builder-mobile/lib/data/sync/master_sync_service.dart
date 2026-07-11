@@ -1,5 +1,8 @@
+import 'dart:math';
+
 import '../amber/amber_api.dart';
 import '../amber/amber_upgrade.dart';
+import '../config/level_exp_table_source.dart';
 import '../db/app_database.dart';
 import '../models/sync_status.dart';
 
@@ -49,17 +52,26 @@ class MasterSyncService {
     required AmberApi amberApi,
     required AppDatabase db,
     AmberUpgradeApi? upgradeApi,
+    LevelExpTableSource? levelExpTableSource,
     this.syncUpgradeDetails = true,
     this.fullUpgrade = false,
+    this.refreshStaleUpgrades = true,
+    this.staleUpgradeSampleSize = 15,
   })  : _amber = amberApi,
         _upgrade = upgradeApi ?? AmberUpgradeApi(),
-        _db = db;
+        _db = db,
+        _levelExpTableSource = levelExpTableSource ?? LevelExpTableSource();
 
   final AmberApi _amber;
   final AmberUpgradeApi _upgrade;
   final AppDatabase _db;
+  final LevelExpTableSource _levelExpTableSource;
   final bool syncUpgradeDetails;
   final bool fullUpgrade;
+
+  /// 通常同期で既存突破を最大 N 件ランダム再取得して Amber 変更を取り込む。
+  final bool refreshStaleUpgrades;
+  final int staleUpgradeSampleSize;
 
   static const _expMaterialCount = 6;
   static const _levelExpSegmentCount = 32;
@@ -201,7 +213,7 @@ class MasterSyncService {
         return;
       }
 
-      final segments = _db.buildLevelExpSegments();
+      final segments = await _levelExpTableSource.loadSegments();
       await _db.upsertLevelExpSegments(segments);
       result.levelExpSegments = segments.length;
       _report(
@@ -218,25 +230,45 @@ class MasterSyncService {
     }
   }
 
+  /// 未取得・空ハッシュ UNION ランダム再取得サンプル
+  List<String> _selectUpgradeTargetIds({
+    required List<String> allIds,
+    required Map<String, String> hashes,
+  }) {
+    if (fullUpgrade) return List<String>.from(allIds);
+
+    final target = <String>{};
+    for (final id in allIds) {
+      final hash = hashes[id];
+      if (hash == null || hash.isEmpty) {
+        target.add(id);
+      }
+    }
+
+    if (refreshStaleUpgrades) {
+      final hashed = allIds
+          .where((id) => (hashes[id] ?? '').isNotEmpty)
+          .toList(growable: true)
+        ..shuffle(Random());
+      final sample = hashed.take(staleUpgradeSampleSize);
+      target.addAll(sample);
+    }
+
+    return target.toList(growable: false);
+  }
+
   Future<void> _syncCharacterUpgrades(
     SyncResult result,
     SyncProgressCallback? onProgress,
   ) async {
     try {
       final allCharacters = await _db.getAllCharacters();
-      final existingIds = fullUpgrade
-          ? <String>{}
-          : await _db.getSyncedCharacterUpgradeIds();
+      final hashes =
+          fullUpgrade ? <String, String>{} : await _db.getCharacterUpgradeHashes();
+      final allIds = allCharacters.map((c) => c.id).toList(growable: false);
+      final targetIds = _selectUpgradeTargetIds(allIds: allIds, hashes: hashes);
 
-      final targetIds = fullUpgrade
-          ? allCharacters.map((c) => c.id).toList()
-          : allCharacters
-              .where((c) => !existingIds.contains(c.id))
-              .map((c) => c.id)
-              .toList();
-
-      result.skippedCharacterUpgrades =
-          allCharacters.length - targetIds.length;
+      result.skippedCharacterUpgrades = allIds.length - targetIds.length;
 
       _report(
         onProgress,
@@ -292,17 +324,12 @@ class MasterSyncService {
   ) async {
     try {
       final allWeapons = await _db.getAllWeapons();
-      final existingIds =
-          fullUpgrade ? <String>{} : await _db.getSyncedWeaponUpgradeIds();
+      final hashes =
+          fullUpgrade ? <String, String>{} : await _db.getWeaponUpgradeHashes();
+      final allIds = allWeapons.map((w) => w.id).toList(growable: false);
+      final targetIds = _selectUpgradeTargetIds(allIds: allIds, hashes: hashes);
 
-      final targetIds = fullUpgrade
-          ? allWeapons.map((w) => w.id).toList()
-          : allWeapons
-              .where((w) => !existingIds.contains(w.id))
-              .map((w) => w.id)
-              .toList();
-
-      result.skippedWeaponUpgrades = allWeapons.length - targetIds.length;
+      result.skippedWeaponUpgrades = allIds.length - targetIds.length;
 
       _report(
         onProgress,
