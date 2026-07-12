@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../data/config/config_load_log.dart';
+import '../../data/config/remote_json_fetch.dart';
 import '../../data/hoyolab/hoyolab_exceptions.dart';
 
 /// ユーザー向けに安全なエラー文言へ変換する。
@@ -18,6 +20,9 @@ String userFacingError(
   if (error is HoyolabApiException) return error.userMessage;
   if (error is TimeoutException) {
     return '通信がタイムアウトしました。再試行してください。';
+  }
+  if (error is RemoteJsonFetchException || error is ConfigLoadException) {
+    return '設定データの読み込みに失敗しました。しばらくしてから再試行してください。';
   }
   if (error is FormatException) {
     return 'データの形式が不正です。再同期するか、しばらくしてから再試行してください。';

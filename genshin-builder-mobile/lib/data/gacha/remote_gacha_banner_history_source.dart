@@ -1,9 +1,11 @@
-import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 
 import '../../domain/gacha/gacha_banner_schedule.dart';
+import '../config/config_load_log.dart';
+import '../config/remote_json_fetch.dart';
 import 'asset_gacha_banner_history_source.dart';
+
+const _configKind = 'gacha_banner_history';
 
 /// リモート JSON からバナー履歴を取得（`--dart-define=GACHA_BANNER_HISTORY_URL=`）
 class RemoteGachaBannerHistorySource implements GachaBannerHistorySource {
@@ -20,15 +22,28 @@ class RemoteGachaBannerHistorySource implements GachaBannerHistorySource {
   @override
   Future<GachaBannerSchedule> load() async {
     if (url.isEmpty) {
-      throw StateError('GACHA_BANNER_HISTORY_URL is empty');
-    }
-    final response = await _client.get(Uri.parse(url)).timeout(timeout);
-    if (response.statusCode != 200) {
-      throw Exception(
-        'gacha banner history remote error: ${response.statusCode}',
+      throw const ConfigLoadException(
+        kind: _configKind,
+        failure: ConfigLoadFailureKind.unexpected,
       );
     }
-    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-    return GachaBannerSchedule.fromJson(decoded);
+    final decoded = await fetchRemoteJsonMap(
+      client: _client,
+      url: url,
+      kind: _configKind,
+      timeout: timeout,
+      maxBytes: kRemoteJsonMaxBytesGachaBannerHistory,
+    );
+    try {
+      // domain validator + parse (lib/domain is not modified).
+      return GachaBannerSchedule.fromJson(decoded);
+    } on FormatException catch (e) {
+      throw configLoadFromFormatException(kind: _configKind, error: e);
+    } catch (_) {
+      throw const ConfigLoadException(
+        kind: _configKind,
+        failure: ConfigLoadFailureKind.unexpected,
+      );
+    }
   }
 }

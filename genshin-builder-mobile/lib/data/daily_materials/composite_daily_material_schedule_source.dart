@@ -1,5 +1,8 @@
 import '../../domain/daily_materials/daily_material_models.dart';
+import '../config/config_load_log.dart';
 import 'daily_material_schedule_repository.dart';
+
+const _configKind = 'daily_material_schedule';
 
 /// ローカル asset を正本とし、リモート version が同等以上ならリモートを採用する。
 class CompositeDailyMaterialScheduleSource
@@ -24,8 +27,9 @@ class CompositeDailyMaterialScheduleSource
     try {
       _cache = await _resolve();
       _lastRefreshAt = DateTime.now();
-    } catch (_) {
+    } catch (e) {
       if (_cache != null) return _cache!;
+      logLocalConfigFailed(kind: _configKind, error: e);
       rethrow;
     }
     return _cache!;
@@ -46,8 +50,8 @@ class CompositeDailyMaterialScheduleSource
       if (remoteSchedule.version >= local.version) {
         return remoteSchedule;
       }
-    } catch (_) {
-      // リモート失敗時はローカル asset を使う
+    } catch (e) {
+      logRemoteFallback(kind: _configKind, error: e);
     }
     return local;
   }

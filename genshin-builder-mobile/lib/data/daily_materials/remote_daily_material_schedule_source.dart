@@ -1,10 +1,12 @@
-import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 
 import '../../domain/daily_materials/daily_material_models.dart';
+import '../config/config_load_log.dart';
 import '../config/config_validators.dart';
+import '../config/remote_json_fetch.dart';
 import 'daily_material_schedule_repository.dart';
+
+const _configKind = 'daily_material_schedule';
 
 /// リモート JSON から曜日スケジュールを取得（`--dart-define=DAILY_MATERIAL_SCHEDULE_URL=`）
 class RemoteDailyMaterialScheduleSource
@@ -22,16 +24,30 @@ class RemoteDailyMaterialScheduleSource
   @override
   Future<DailyMaterialSchedule> load() async {
     if (url.isEmpty) {
-      throw StateError('DAILY_MATERIAL_SCHEDULE_URL is empty');
-    }
-    final response = await _client.get(Uri.parse(url)).timeout(timeout);
-    if (response.statusCode != 200) {
-      throw Exception(
-        'daily material schedule remote error: ${response.statusCode}',
+      throw const ConfigLoadException(
+        kind: _configKind,
+        failure: ConfigLoadFailureKind.unexpected,
       );
     }
-    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-    validateDailyMaterialScheduleJson(decoded);
-    return DailyMaterialSchedule.fromJson(decoded);
+    final decoded = await fetchRemoteJsonMap(
+      client: _client,
+      url: url,
+      kind: _configKind,
+      timeout: timeout,
+      maxBytes: kRemoteJsonMaxBytesDailyMaterialSchedule,
+    );
+    try {
+      validateDailyMaterialScheduleJson(decoded);
+    } on FormatException catch (e) {
+      throw configLoadFromFormatException(kind: _configKind, error: e);
+    }
+    try {
+      return DailyMaterialSchedule.fromJson(decoded);
+    } catch (_) {
+      throw const ConfigLoadException(
+        kind: _configKind,
+        failure: ConfigLoadFailureKind.unexpected,
+      );
+    }
   }
 }

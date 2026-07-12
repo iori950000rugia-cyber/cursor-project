@@ -1,5 +1,8 @@
+import '../config/config_load_log.dart';
 import 'artifact_score_weight.dart';
 import 'artifact_score_weight_source.dart';
+
+const _configKind = 'artifact_score_weights';
 
 class CompositeArtifactScoreWeightSource
     implements RefreshableArtifactScoreWeightSource {
@@ -29,7 +32,7 @@ class CompositeArtifactScoreWeightSource
         _cache = await _buildMergedProfiles();
         _lastRefreshAt = DateTime.now();
       } catch (_) {
-        // リモート更新失敗時は既存キャッシュを利用
+        // リモート更新失敗時は既存キャッシュを利用（invalid remote で破壊しない）
       }
     }
     return _cache!;
@@ -51,7 +54,13 @@ class CompositeArtifactScoreWeightSource
   Future<List<ArtifactScoreWeightProfile>> _buildMergedProfiles({
     bool forceRemote = false,
   }) async {
-    final local = await _localSource.loadProfiles();
+    late final List<ArtifactScoreWeightProfile> local;
+    try {
+      local = await _localSource.loadProfiles();
+    } catch (e) {
+      logLocalConfigFailed(kind: _configKind, error: e);
+      rethrow;
+    }
     final byId = {
       for (final p in local) p.characterId: p,
     };
@@ -65,8 +74,8 @@ class CompositeArtifactScoreWeightSource
         for (final p in remoteProfiles) {
           byId[p.characterId] = p;
         }
-      } catch (_) {
-        // リモート失敗時はローカルのみで続行
+      } catch (e) {
+        logRemoteFallback(kind: _configKind, error: e);
       }
     }
     return byId.values.toList(growable: false);

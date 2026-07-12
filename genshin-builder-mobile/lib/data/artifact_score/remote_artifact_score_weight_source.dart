@@ -1,10 +1,12 @@
-import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 
+import '../config/config_load_log.dart';
 import '../config/config_validators.dart';
+import '../config/remote_json_fetch.dart';
 import 'artifact_score_weight.dart';
 import 'artifact_score_weight_source.dart';
+
+const _configKind = 'artifact_score_weights';
 
 class RemoteArtifactScoreWeightSource
     implements RefreshableArtifactScoreWeightSource {
@@ -24,16 +26,30 @@ class RemoteArtifactScoreWeightSource
   @override
   Future<List<ArtifactScoreWeightProfile>> refreshProfiles() async {
     if (url.isEmpty) return const [];
-    final response = await _client.get(Uri.parse(url)).timeout(timeout);
-    if (response.statusCode != 200) {
-      throw Exception('artifact score weights remote error: ${response.statusCode}');
+    final decoded = await fetchRemoteJsonMap(
+      client: _client,
+      url: url,
+      kind: _configKind,
+      timeout: timeout,
+      maxBytes: kRemoteJsonMaxBytesArtifactScoreWeights,
+    );
+    try {
+      validateArtifactScoreWeightsJson(decoded);
+    } on FormatException catch (e) {
+      throw configLoadFromFormatException(kind: _configKind, error: e);
     }
-    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-    validateArtifactScoreWeightsJson(decoded);
-    final list = (decoded['profiles'] as List<dynamic>? ?? [])
-        .whereType<Map<String, dynamic>>()
-        .map(ArtifactScoreWeightProfile.fromJson)
-        .toList(growable: false);
-    return list;
+    try {
+      return (decoded['profiles'] as List<dynamic>? ?? [])
+          .whereType<Map>()
+          .map((e) => ArtifactScoreWeightProfile.fromJson(
+                Map<String, dynamic>.from(e),
+              ))
+          .toList(growable: false);
+    } catch (_) {
+      throw const ConfigLoadException(
+        kind: _configKind,
+        failure: ConfigLoadFailureKind.unexpected,
+      );
+    }
   }
 }

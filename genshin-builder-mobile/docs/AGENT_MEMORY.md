@@ -2,6 +2,17 @@
 
 セッションごとの設計判断ログ。重要な決定のみ追記する。
 
+## 2026-07-12 — [P1-7] Remote JSON 防御（streaming fetch）
+
+- 目的: dart-define Remote JSON（weights / daily / gacha history）の timeout・status・byte 上限・decode・validator・fallback・安全ログを統一。巨大レスポンスをメモリに載せ切らない
+- 共通: `fetchRemoteJsonMap`（`client.send` + stream 累積、Content-Length / 途中超過で `responseTooLarge`）。Client は Source 注入・helper は close しない
+- maxBytes: weights/daily 256KiB、gacha 1MiB（local gacha ~99KiB 根拠）
+- Content-Type 単独拒否なし。明らかな HTML（先頭 `<`）のみ `invalidJson`
+- Composite/PreferRemote のみ `logConfigLoad`（URL/body/秘密なし）。fetch/Source はログしない
+- 採用ポリシー・TTL・domain・P1-6 起動は非変更。local-only 3経路は P1-7b
+- 検証: 関連+保護3+全 test 成功、対象 analyze 問題なし、debug APK 成功、3 local asset validator 通過、domain 内容差分なし
+- **実機未確認:** 実 Remote URL 障害時の fallback、巨大レスポンス、低速回線
+
 ## 2026-07-12 — [P1-6] 起動パスの段階化（ローカルファースト）
 
 - 目的: 既存ローカルがあるときネットワークを待たずホーム表示。同期必要 ≠ 起動ブロック
@@ -11,6 +22,7 @@
 - 手動同期は BG 中 `ManualSyncStart.busy`（合流して成功扱いにしない）
 - Amber probe: ホーム後・並列・15s timeout・遅延結果不採用
 - 変更: `sync_status` / `initial_sync_screen` / `master_sync_runner` / `background_master_repair` / probe・Amber 件数並列 / `app.dart` / home / settings / provider / テスト
+- 状態: **実装完了・実機性能確認保留**
 - 検証: P1-6 + 保護3 + 全 test 成功、対象 analyze 問題なし、debug APK 成功。domain 内容差分なし
 - **実機未確認:** コールド/オフライン時間、低速回線、初回同期、Home first frame、BG probe/repair、アイコン後載せ、HoYoLAB prefetch
 - ロールバック: 上記ファイル差し戻し（domain/schema/Cookie 未変更）

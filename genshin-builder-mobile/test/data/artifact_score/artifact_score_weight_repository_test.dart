@@ -55,7 +55,17 @@ void main() {
   });
 
   test('returns null for unknown character id', () async {
-    const json = '{"profiles": []}';
+    const json = '''
+{
+  "profiles": [
+    {
+      "characterId": "10000052",
+      "name": "雷電将軍",
+      "weights": { "critRate": 2 }
+    }
+  ]
+}
+''';
     final repo = ArtifactScoreWeightRepository(
       LocalJsonArtifactScoreWeightSource(
         bundle: _FakeAssetBundle(json),

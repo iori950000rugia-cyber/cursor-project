@@ -1,7 +1,10 @@
 import '../../domain/gacha/gacha_banner.dart';
 import '../../domain/gacha/gacha_banner_schedule.dart';
+import '../config/config_load_log.dart';
 import 'asset_gacha_banner_history_source.dart';
 import 'gacha_calendar_api.dart';
+
+const _configKind = 'gacha_banner_history';
 
 class GachaBannerLoadResult {
   const GachaBannerLoadResult({
@@ -61,8 +64,14 @@ class PreferRemoteGachaBannerHistorySource implements GachaBannerHistorySource {
   Future<GachaBannerSchedule> load() async {
     try {
       return await remote.load();
-    } catch (_) {
-      return fallback.load();
+    } catch (remoteError) {
+      logRemoteFallback(kind: _configKind, error: remoteError);
+      try {
+        return await fallback.load();
+      } catch (localError) {
+        logLocalConfigFailed(kind: _configKind, error: localError);
+        rethrow;
+      }
     }
   }
 }
