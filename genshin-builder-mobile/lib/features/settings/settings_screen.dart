@@ -6,6 +6,7 @@ import '../../data/models/sync_status.dart';
 import '../../core/errors/user_facing_error.dart';
 import '../../data/sync/master_sync_runner.dart';
 import '../../providers/app_providers.dart';
+import '../shared/shell_menu_button.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -94,7 +95,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final versionStatusAsync = ref.watch(versionStatusProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('設定')),
+      appBar: AppBar(
+        title: const Text('設定'),
+        actions: const [ShellMenuButton()],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

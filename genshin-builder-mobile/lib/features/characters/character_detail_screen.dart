@@ -12,6 +12,7 @@ import '../../domain/models/master_models.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/character_detail_providers.dart';
 import '../../providers/hoyolab_game_providers.dart';
+import '../shared/shell_menu_button.dart';
 import 'character_detail_state.dart';
 import 'widgets/character_detail_bookmark_actions.dart';
 import 'widgets/character_detail_header.dart';
@@ -255,6 +256,7 @@ class _CharacterDetailScreenState extends ConsumerState<CharacterDetailScreen>
                 ? null
                 : () => unawaited(_confirmResetToFetched(detail)),
           ),
+          const ShellMenuButton(),
         ],
       ),
       body: Column(

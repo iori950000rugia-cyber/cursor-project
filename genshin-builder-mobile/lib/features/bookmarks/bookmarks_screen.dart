@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../providers/app_providers.dart';
 import '../../core/errors/user_facing_error.dart';
+import '../shared/shell_menu_button.dart';
 
 class BookmarksScreen extends ConsumerWidget {
   const BookmarksScreen({super.key});
@@ -69,6 +70,7 @@ class BookmarksScreen extends ConsumerWidget {
                 ? null
                 : () => _clearAll(context, ref),
           ),
+          const ShellMenuButton(),
         ],
       ),
       body: bookmarksAsync.when(

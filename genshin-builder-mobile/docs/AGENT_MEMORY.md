@@ -2,6 +2,30 @@
 
 セッションごとの設計判断ログ。重要な決定のみ追記する。
 
+## 2026-07-12 — ホームに開催中イベント
+
+- ennead calendar の `events[]` をホーム「開催中のイベント」カードで表示（DailyNote の下）
+- 期間 0 は除外。開催中→予告、最大5件。同一 API キャッシュをガチャバナーと共有
+
+## 2026-07-12 — ガチャ（PUバナー履歴）画面
+
+- ドロワー「ガチャ」(`/gacha`): 個人祈願ログは対象外。PUバナー日程一覧
+- 並び: 開催中（終了近い順）→ 予告 → 終了済み（開始新しい順）
+- Live: `api.ennead.cc/mihoyo/genshin/calendar`。履歴: `assets/config/gacha_banner_history.json` + 任意 `GACHA_BANNER_HISTORY_URL`
+- 履歴シードは paimon-moe `banners.js` → Amber EN ID 変換（`tool/convert_paimon_banners.py`）
+
+## 2026-07-12 — フッターナビ → 右ドロワー
+
+- `AppShell` の `NavigationBar` を廃止し `endDrawer`（`NavigationDrawer`）へ
+- AppBar 右上 `ShellMenuButton` + 右端スワイプで開く
+
+## 2026-07-12 — キャラ一覧を聖遺物と同じ地域順に
+
+- 既定表示: 地域セクション + グリッド（聖遺物一覧と同レイアウト）
+- 地域順: モンド→璃月→稲妻→スメール→フォンテーヌ→ナタ→ノド・クライ→その他（ファデュイなし）
+- 例外: スカーク→ナタ、サンドローネ→ノド・クライ。他ファデュイ/旅人→その他
+- `normalizeCharacterRegionForDisplay` で表示時・同期パース時に正規化
+
 ## 2026-07-11 — 聖遺物一覧 UI（グリッド＋詳細ダイアログ）
 
 - 一覧は地域セクション付き `GridView`（幅で 3/4/5/6 列）。セルはアイコン＋セット名
