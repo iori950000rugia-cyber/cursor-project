@@ -23,13 +23,25 @@ final akashaArtifactSetUsageRepositoryProvider =
   return repo;
 });
 
+/// セット一覧の Akasha 取得キャラ数上限（所持優先で切り詰め）。
+const int kArtifactAkashaSampleLimit = 32;
+
 /// Akasha 集計用のキャラ ID。
-/// 全キャラを対象にし、所持 → 聖遺物進捗あり → その他の順で並べる（取得優先度）。
+///
+/// 優先: 所持 → 聖遺物進捗（setName あり）。未所持・未進捗の全マスタは含めない。
+/// [allCharacters] は呼び出し互換のため残す（P1-5 以降はサンプリングに使わない）。
 List<String> selectArtifactRecommendationSampleIds({
   required Set<String> ownedIds,
   required List<UserProgress> progressList,
   required List<MasterCharacter> allCharacters,
+  int maxSampleIds = kArtifactAkashaSampleLimit,
 }) {
+  // 呼び出し互換（未使用）。全マスタ埋め込みは負荷のため廃止。
+  assert(() {
+    allCharacters.length;
+    return true;
+  }());
+
   final ordered = <String>[];
   final seen = <String>{};
 
@@ -47,17 +59,9 @@ List<String> selectArtifactRecommendationSampleIds({
     if (hasSet) add(p.characterId);
   }
 
-  final rest = [...allCharacters]
-    ..sort((a, b) {
-      final byRarity = b.rarity.compareTo(a.rarity);
-      if (byRarity != 0) return byRarity;
-      return a.name.compareTo(b.name);
-    });
-  for (final c in rest) {
-    add(c.id);
-  }
-
-  return ordered;
+  if (maxSampleIds <= 0) return const [];
+  if (ordered.length <= maxSampleIds) return ordered;
+  return ordered.sublist(0, maxSampleIds);
 }
 
 /// HoYoLAB 聖遺物 → 突合用 [ArtifactPiece]（スロット不要・件数集計用）。
@@ -233,7 +237,7 @@ final artifactSetOverviewsProvider =
     final usageRepo = ref.watch(akashaArtifactSetUsageRepositoryProvider);
     final snaps = await usageRepo.getUsageRatesForCharacters(
       sampleIds,
-      concurrency: 6,
+      concurrency: 4,
     );
     akashaIndex = invertCharacterSetUsage(
       snapshots: snaps.map(

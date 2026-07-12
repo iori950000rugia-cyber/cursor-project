@@ -1,8 +1,20 @@
 import 'package:genshin_builder_mobile/data/akasha/akasha_artifact_set_usage.dart';
 import 'package:genshin_builder_mobile/domain/artifacts/artifact_set_recommendations.dart';
+import 'package:genshin_builder_mobile/domain/models/artifact_state.dart';
 import 'package:genshin_builder_mobile/domain/models/master_models.dart';
 import 'package:genshin_builder_mobile/providers/artifact_sets_page_providers.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+MasterCharacter _char(String id, String name, {int rarity = 5}) =>
+    MasterCharacter(
+      id: id,
+      name: name,
+      element: '炎',
+      rarity: rarity,
+      weaponType: '片手剣',
+      region: 'モンド',
+      iconUrl: '',
+    );
 
 void main() {
   group('countArtifactSetsFromBuilds', () {
@@ -57,43 +69,71 @@ void main() {
   });
 
   group('selectArtifactRecommendationSampleIds', () {
-    test('includes all characters with owned first', () {
-      final a = MasterCharacter(
-        id: '10000052',
-        name: '雷電将軍',
-        element: '雷',
-        rarity: 5,
-        weaponType: '長柄武器',
-        region: '稲妻',
-        iconUrl: '',
+    test('owned only: does not add rest of master roster', () {
+      final owned = _char('10000023', '香菱', rarity: 4);
+      final masters = [
+        _char('10000052', '雷電将軍'),
+        owned,
+        _char('10000030', '鍾離'),
+        ...List.generate(
+          7,
+          (i) => _char('extra_$i', 'Extra$i', rarity: 4),
+        ),
+      ];
+
+      final ids = selectArtifactRecommendationSampleIds(
+        ownedIds: {owned.id},
+        progressList: const [],
+        allCharacters: masters,
       );
-      final b = MasterCharacter(
-        id: '10000023',
-        name: '香菱',
-        element: '炎',
-        rarity: 4,
-        weaponType: '長柄武器',
-        region: '璃月',
-        iconUrl: '',
-      );
-      final c = MasterCharacter(
-        id: '10000030',
-        name: '鍾離',
-        element: '岩',
-        rarity: 5,
-        weaponType: '長柄武器',
-        region: '璃月',
-        iconUrl: '',
+      expect(ids, [owned.id]);
+    });
+
+    test('includes progress characters with setName after owned', () {
+      final owned = _char('owned', 'Owned');
+      final progressed = _char('progress', 'Progress');
+      final progress = UserProgress(
+        id: 'p1',
+        userId: 'u',
+        characterId: progressed.id,
+        artifactsJson: encodeArtifactState({
+          ArtifactSlotKey.flower: const ArtifactPiece(setName: '絶縁の旗印'),
+        }),
       );
 
       final ids = selectArtifactRecommendationSampleIds(
-        ownedIds: {b.id},
-        progressList: const [],
-        allCharacters: [a, b, c],
+        ownedIds: {owned.id},
+        progressList: [progress],
+        allCharacters: [owned, progressed, _char('other', 'Other')],
       );
-      expect(ids.length, 3);
-      expect(ids.first, b.id);
-      expect(ids.toSet(), {a.id, b.id, c.id});
+      expect(ids, [owned.id, progressed.id]);
+    });
+
+    test('caps at maxSampleIds with owned priority', () {
+      final ownedIds = {
+        for (var i = 0; i < 40; i++) 'owned_$i',
+      };
+      final masters = [
+        for (final id in ownedIds) _char(id, id),
+      ];
+
+      final ids = selectArtifactRecommendationSampleIds(
+        ownedIds: ownedIds,
+        progressList: const [],
+        allCharacters: masters,
+        maxSampleIds: kArtifactAkashaSampleLimit,
+      );
+      expect(ids.length, kArtifactAkashaSampleLimit);
+      expect(ids.every((id) => ownedIds.contains(id)), isTrue);
+    });
+
+    test('empty owned and progress yields empty sample', () {
+      final ids = selectArtifactRecommendationSampleIds(
+        ownedIds: {},
+        progressList: const [],
+        allCharacters: [_char('a', 'A'), _char('b', 'B')],
+      );
+      expect(ids, isEmpty);
     });
   });
 }
