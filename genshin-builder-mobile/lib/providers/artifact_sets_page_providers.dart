@@ -4,6 +4,7 @@ import '../data/akasha/akasha_artifact_set_usage_repository.dart';
 import '../data/config/artifact_set_recommendations_loader.dart';
 import '../data/hoyolab/models/game_record.dart';
 import '../domain/artifacts/artifact_set_overview.dart';
+import '../domain/artifacts/character_recommended_artifact_sets.dart';
 import '../domain/models/artifact_state.dart';
 import '../domain/models/master_models.dart';
 import 'app_providers.dart';
@@ -251,6 +252,36 @@ final artifactSetOverviewsProvider =
     charactersById: byId,
     charactersByName: byName,
     akashaByEnglishSet: akashaIndex,
+    configRecommendationsBySetName: config.recommendations,
+    setNameAliases: config.aliases,
+  );
+});
+
+/// キャラ別おすすめ聖遺物セット（Akasha 使用率 → 設定フォールバック）
+final characterRecommendedArtifactSetsProvider = FutureProvider.family<
+    List<CharacterRecommendedArtifactSet>, String>((ref, characterId) async {
+  final characters = await ref.watch(charactersProvider.future);
+  MasterCharacter? character;
+  for (final c in characters) {
+    if (c.id == characterId) {
+      character = c;
+      break;
+    }
+  }
+  if (character == null) return const [];
+
+  final sets = await ref.watch(artifactSetsProvider.future);
+  final config =
+      await ref.watch(artifactSetRecommendationsConfigProvider.future);
+  final snap = await ref
+      .watch(akashaArtifactSetUsageRepositoryProvider)
+      .getUsageRates(characterId);
+
+  return buildCharacterRecommendedArtifactSets(
+    characterId: character.id,
+    characterName: character.name,
+    sets: sets,
+    akashaRates: snap.isFromRemote ? snap.rates : const {},
     configRecommendationsBySetName: config.recommendations,
     setNameAliases: config.aliases,
   );
