@@ -10,6 +10,8 @@ import '../../core/errors/user_facing_error.dart';
 import '../../widgets/deferred_loader.dart';
 import '../hoyolab/widgets/adventure_status_card.dart';
 import '../hoyolab/widgets/daily_note_card.dart';
+import '../shared/shell_menu_button.dart';
+import 'widgets/home_events_card.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -31,6 +33,7 @@ class HomeScreen extends ConsumerWidget {
             onPressed: () => context.go('/settings'),
             tooltip: 'データ同期',
           ),
+          const ShellMenuButton(),
         ],
       ),
       body: ListView(
@@ -68,12 +71,20 @@ class HomeScreen extends ConsumerWidget {
                     icon: const Icon(Icons.calendar_today),
                     label: const Text('今日の曜日素材'),
                   ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () => context.go('/gacha'),
+                    icon: const Icon(Icons.casino_outlined),
+                    label: const Text('ガチャ（PUバナー）'),
+                  ),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 16),
           const DailyNoteCard(),
+          const SizedBox(height: 16),
+          const HomeEventsCard(),
           const SizedBox(height: 16),
           DeferredLoader(
             builder: (_) => const AdventureStatusCard(),
