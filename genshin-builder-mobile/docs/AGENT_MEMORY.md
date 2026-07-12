@@ -2,6 +2,19 @@
 
 セッションごとの設計判断ログ。重要な決定のみ追記する。
 
+## 2026-07-12 — [P1-8A] Android システム Back（Home で終了しない）
+
+- 状態: **実装完了・Android実機確認保留**
+- 目的: Android Back で Dialog→通常 pop→トップレベルは `go('/')`→Home では消費。Home 連打でもアプリ終了しない
+- 配置: `AppShell` 内（Android のみ）。`BackButtonListener`（GoRouter より先に Drawer/Home を処理）+ `PopScope`（Predictive Back の canPop）
+- canPop: 既知 nested path（`/characters/:id`, `/settings/...`）かつ Drawer 閉。`GoRouter.canPop()` は Shell build 時点で stale になり得るため path 判定を採用
+- Drawer: BackButtonListener で `closeEndDrawer`（ShellRoute 下では local history が Drawer より先に detail を pop するため）
+- 非 Android: PopScope/Listener なし（既存挙動）
+- 変更: `lib/router.dart`, `lib/navigation/android_system_back.dart`, `test/navigation/android_system_back_test.dart`
+- 検証: P1-8A 19 + 保護3 + 全 test 261 成功、対象 analyze 問題なし、debug APK 成功。通知/HoYoLAB/domain/Drift 非変更
+- **実機未確認:** 3ボタン/Gesture/Predictive Back アニメ、Dialog/Drawer、Home 連打、通知復帰後 Back
+- ロールバック: 上記3実装ファイル + AGENT_MEMORY 差し戻し
+
 ## 2026-07-12 — [P1-7] Remote JSON 防御（streaming fetch）
 
 - 目的: dart-define Remote JSON（weights / daily / gacha history）の timeout・status・byte 上限・decode・validator・fallback・安全ログを統一。巨大レスポンスをメモリに載せ切らない

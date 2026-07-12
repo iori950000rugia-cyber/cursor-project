@@ -11,6 +11,7 @@ import 'features/gacha/gacha_screen.dart';
 import 'features/hoyolab/hoyolab_settings_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/settings/settings_screen.dart';
+import 'navigation/android_system_back.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/bootstrap',
@@ -161,6 +162,8 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _endDrawerOpen = false;
+  bool _handlingSystemBack = false;
 
   int _selectedIndex(String path) {
     if (path.startsWith('/characters')) return 1;
@@ -177,18 +180,113 @@ class _AppShellState extends State<AppShell> {
     context.go(_navItems[index].path);
   }
 
+  bool _isEndDrawerOpen() =>
+      _endDrawerOpen ||
+      (_scaffoldKey.currentState?.isEndDrawerOpen ?? false);
+
+  Future<bool> _onAndroidBackButton() async {
+    if (_handlingSystemBack || !mounted) return true;
+    if (!isAndroidSystemBackHandlingEnabled) return false;
+
+    if (_isEndDrawerOpen()) {
+      _scaffoldKey.currentState?.closeEndDrawer();
+      return true;
+    }
+
+    final path = GoRouterState.of(context).uri.path;
+
+    // トップレベル上の Dialog / Sheet は Navigator に任せる
+    if (!isShellNestedLocation(path) &&
+        Navigator.of(context, rootNavigator: true).canPop()) {
+      return false;
+    }
+
+    // ネスト詳細は GoRouter / Navigator の通常 pop
+    if (isShellNestedLocation(path)) {
+      return false;
+    }
+
+    if (isShellHomePath(path)) {
+      return true;
+    }
+
+    _handlingSystemBack = true;
+    try {
+      context.go('/');
+    } finally {
+      _handlingSystemBack = false;
+    }
+    return true;
+  }
+
+  void _onSystemBackInvoked(bool didPop, Object? result) {
+    // Predictive Back / PopScope 経路。didPop 時は二重処理しない。
+    if (didPop || _handlingSystemBack || !mounted) return;
+    if (!isAndroidSystemBackHandlingEnabled) return;
+
+    final drawerOpen = _isEndDrawerOpen();
+    if (androidSystemBackShouldCloseDrawer(
+      didPop: didPop,
+      isEndDrawerOpen: drawerOpen,
+    )) {
+      _scaffoldKey.currentState?.closeEndDrawer();
+      return;
+    }
+
+    final path = GoRouterState.of(context).uri.path;
+    if (!androidSystemBackShouldGoHome(
+      locationPath: path,
+      isEndDrawerOpen: drawerOpen,
+    )) {
+      return;
+    }
+
+    _handlingSystemBack = true;
+    try {
+      context.go('/');
+    } finally {
+      _handlingSystemBack = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final path = GoRouterState.of(context).uri.path;
     final selected = _selectedIndex(path);
     final theme = Theme.of(context);
 
+    Widget body = widget.child;
+    if (isAndroidSystemBackHandlingEnabled) {
+      // BackButtonListener: GoRouter より先に Drawer / Home 消費を処理できる
+      // PopScope: Predictive Back の canPop 提示用
+      body = BackButtonListener(
+        onBackButtonPressed: _onAndroidBackButton,
+        child: Builder(
+          builder: (bodyContext) {
+            final drawerOpen = Scaffold.of(bodyContext).isEndDrawerOpen ||
+                _endDrawerOpen;
+            return PopScope(
+              canPop: androidSystemBackCanPop(
+                locationPath: path,
+                isEndDrawerOpen: drawerOpen,
+              ),
+              onPopInvokedWithResult: _onSystemBackInvoked,
+              child: widget.child,
+            );
+          },
+        ),
+      );
+    }
+
     return AppShellScope(
       scaffoldKey: _scaffoldKey,
       child: Scaffold(
         key: _scaffoldKey,
-        body: widget.child,
         endDrawerEnableOpenDragGesture: true,
+        onEndDrawerChanged: (isOpen) {
+          if (_endDrawerOpen == isOpen) return;
+          setState(() => _endDrawerOpen = isOpen);
+        },
         endDrawer: NavigationDrawer(
           selectedIndex: selected,
           onDestinationSelected: (i) => _go(context, i),
@@ -205,6 +303,7 @@ class _AppShellState extends State<AppShell> {
               ),
           ],
         ),
+        body: body,
       ),
     );
   }
