@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../data/hoyolab/hoyolab_constants.dart';
-import '../../data/hoyolab/hoyolab_cookie_service.dart';
+import '../../providers/hoyolab_providers.dart';
 import 'widgets/hoyolab_disclaimer_banner.dart';
 
-class HoyolabLoginScreen extends StatefulWidget {
+class HoyolabLoginScreen extends ConsumerStatefulWidget {
   const HoyolabLoginScreen({super.key});
 
   @override
-  State<HoyolabLoginScreen> createState() => _HoyolabLoginScreenState();
+  ConsumerState<HoyolabLoginScreen> createState() => _HoyolabLoginScreenState();
 }
 
-class _HoyolabLoginScreenState extends State<HoyolabLoginScreen> {
+class _HoyolabLoginScreenState extends ConsumerState<HoyolabLoginScreen> {
   WebViewController? _controller;
-  final _cookieService = const HoyolabCookieService();
   var _loading = true;
   var _completing = false;
   String? _error;
@@ -103,7 +103,7 @@ if (location.href.startsWith("https://m.hoyolab.com/") || location.href.startsWi
             return;
           }
           if (message.message == 'tokenReceived') {
-            await _completeWithCookie();
+            await _completeLogin();
           }
         },
       )
@@ -124,25 +124,34 @@ if (location.href.startsWith("https://m.hoyolab.com/") || location.href.startsWi
     }
   }
 
-  Future<void> _completeWithCookie() async {
+  Future<void> _completeLogin() async {
     if (_completing) return;
     setState(() {
       _completing = true;
       _error = null;
     });
 
-    final cookie = await _cookieService.fetchCookieString();
-    if (!mounted) return;
-
-    if (cookie == null || cookie.isEmpty) {
+    try {
+      final useCase =
+          await ref.read(completeHoyolabWebLoginUseCaseProvider.future);
+      final result = await useCase();
+      if (!mounted) return;
+      if (result.success) {
+        Navigator.of(context).pop(true);
+        return;
+      }
       setState(() {
         _completing = false;
-        _error = 'Cookie を取得できませんでした。ログイン完了後にもう一度お試しください。';
+        _error = result.userMessage ??
+            '連携に失敗しました。ログイン状態を確認して再試行してください。';
       });
-      return;
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _completing = false;
+        _error = '連携に失敗しました。ログイン状態を確認して再試行してください。';
+      });
     }
-
-    Navigator.of(context).pop(cookie);
   }
 
   @override
@@ -193,7 +202,7 @@ if (location.href.startsWith("https://m.hoyolab.com/") || location.href.startsWi
                   ],
                   const SizedBox(height: 12),
                   FilledButton.icon(
-                    onPressed: _completing ? null : _completeWithCookie,
+                    onPressed: _completing ? null : _completeLogin,
                     icon: _completing
                         ? const SizedBox(
                             width: 18,

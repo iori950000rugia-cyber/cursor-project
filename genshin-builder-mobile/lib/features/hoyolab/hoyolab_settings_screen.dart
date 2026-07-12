@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/feature_flags.dart';
 import '../../core/errors/user_facing_error.dart';
-import '../../data/hoyolab/hoyolab_exceptions.dart';
 import '../../data/hoyolab/models/daily_note.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/hoyolab_game_refresh.dart';
@@ -34,28 +33,24 @@ class _HoyolabSettingsScreenState extends ConsumerState<HoyolabSettingsScreen> {
   }
 
   Future<void> _startLogin() async {
-    final cookie = await Navigator.of(context).push<String>(
+    final ok = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => const HoyolabLoginScreen()),
     );
-    if (cookie == null || cookie.isEmpty || !mounted) return;
+    if (ok != true || !mounted) return;
 
     setState(() {
       _busy = true;
       _message = null;
     });
     try {
-      final repo = await ref.read(hoyolabRepositoryProvider.future);
-      await repo.completeLogin(cookie: cookie);
       await _refreshProviders();
       setState(() => _message = 'HoYoLAB 連携が完了しました');
-    } on HoyolabApiException catch (e) {
-      setState(() => _message = e.userMessage);
     } catch (e, st) {
-      logAppError(e, st, 'hoyolab.login');
+      logAppError(e, st, 'hoyolab.login.refresh');
       setState(
         () => _message = userFacingError(
           e,
-          fallback: '連携に失敗しました。ログイン状態を確認して再試行してください。',
+          fallback: '連携状態の更新に失敗しました。再試行してください。',
         ),
       );
     } finally {

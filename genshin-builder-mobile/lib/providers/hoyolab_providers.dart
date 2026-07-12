@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../application/hoyolab/complete_hoyolab_web_login_use_case.dart';
 import '../config/feature_flags.dart';
+import '../data/hoyolab/hoyolab_cookie_service.dart';
 import '../data/hoyolab/models/daily_note.dart';
 import '../data/repositories/hoyolab_repository.dart';
 import '../data/secure/secure_storage_service.dart';
@@ -8,6 +10,10 @@ import 'app_providers.dart';
 
 final secureStorageProvider = Provider<SecureStorageService>((ref) {
   return SecureStorageService();
+});
+
+final hoyolabCookieServiceProvider = Provider<HoyolabCookieService>((ref) {
+  return const HoyolabCookieService();
 });
 
 final featureFlagsProvider = FutureProvider<FeatureFlags>((ref) async {
@@ -25,6 +31,16 @@ final hoyolabRepositoryProvider = FutureProvider<HoyolabRepository>((ref) async 
   return HoyolabRepository(
     secureStorage: secure,
     featureFlags: flags,
+    cookieService: ref.watch(hoyolabCookieServiceProvider),
+  );
+});
+
+final completeHoyolabWebLoginUseCaseProvider =
+    FutureProvider<CompleteHoyolabWebLoginUseCase>((ref) async {
+  final repo = await ref.watch(hoyolabRepositoryProvider.future);
+  return CompleteHoyolabWebLoginUseCase(
+    cookieService: ref.watch(hoyolabCookieServiceProvider),
+    repository: repo,
   );
 });
 

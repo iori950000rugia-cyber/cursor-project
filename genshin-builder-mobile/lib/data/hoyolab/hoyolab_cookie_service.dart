@@ -1,10 +1,21 @@
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../platform/hoyolab_cookie_channel.dart';
+import 'hoyolab_cookie_normalizer.dart';
+import 'native_cookie_fetch_result.dart';
 
-/// WebView / ネイティブから HoYoLAB Cookie を取得
+/// Collects HoYoLAB cookies from WebView (preferred) and native CookieManager.
 class HoyolabCookieService {
-  const HoyolabCookieService();
+  const HoyolabCookieService({
+    this.webViewCookieReader,
+    this.nativeCookieFetcher,
+  });
+
+  /// Test seam for WebView cookies (name→value).
+  final Future<Map<String, String>> Function()? webViewCookieReader;
+
+  /// Test seam for native channel result.
+  final Future<NativeCookieFetchResult> Function()? nativeCookieFetcher;
 
   static const _cookieDomains = [
     'https://m.hoyolab.com',
@@ -13,42 +24,55 @@ class HoyolabCookieService {
     'https://account.hoyolab.com',
   ];
 
-  Future<String?> fetchCookieString() async {
-    final native = await HoyolabCookieChannel.fetchNativeCookie();
-    if (_hasAuthCookie(native)) return _normalize(native!);
+  /// Returns a normalized Cookie header, or null if no usable token cookie.
+  ///
+  /// Priority: WebView values win; native only fills keys missing from WebView.
+  Future<String?> collectNormalizedCookie() async {
+    final webViewMap = await _readWebViewCookies();
+    final nativeResult = await (nativeCookieFetcher ??
+        HoyolabCookieChannel.fetchNativeCookie)();
+    final nativeMap = nativeResult.isOk
+        ? HoyolabCookieNormalizer.parseToMap(nativeResult.value)
+        : null;
 
-    final manager = WebViewCookieManager();
-    final merged = <String, String>{};
-
-    for (final domain in _cookieDomains) {
-      final cookies = await manager.getCookies(domain: Uri.parse(domain));
-      for (final cookie in cookies) {
-        if (cookie.name.isEmpty) continue;
-        merged[cookie.name] = cookie.value;
-      }
-    }
-
+    final merged = HoyolabCookieNormalizer.mergePreferBase(
+      base: webViewMap,
+      fill: nativeMap ?? const {},
+    );
     if (merged.isEmpty) return null;
-    final cookie = merged.entries.map((e) => '${e.key}=${e.value}').join('; ');
-    if (!_hasAuthCookie(cookie)) return null;
-    return _normalize(cookie);
+    if (!HoyolabCookieNormalizer.hasRequiredToken(merged)) return null;
+    return HoyolabCookieNormalizer.serialize(merged);
   }
 
+  /// Legacy helper used by tests / call sites that only need presence.
+  Future<String?> fetchCookieString() => collectNormalizedCookie();
+
   Future<bool> hasAuthCookie() async {
-    final cookie = await fetchCookieString();
+    final cookie = await collectNormalizedCookie();
     return cookie != null;
   }
 
-  static bool _hasAuthCookie(String? cookie) {
-    if (cookie == null || cookie.isEmpty) return false;
-    return cookie.contains('ltoken_v2=') ||
-        cookie.contains('ltoken=') ||
-        cookie.contains('ltuid_v2=') ||
-        cookie.contains('account_id_v2=');
-  }
+  Future<Map<String, String>> _readWebViewCookies() async {
+    if (webViewCookieReader != null) {
+      return Map<String, String>.from(await webViewCookieReader!());
+    }
 
-  static String _normalize(String cookie) {
-    final trimmed = cookie.trim();
-    return trimmed.endsWith(';') ? trimmed : '$trimmed;';
+    final manager = WebViewCookieManager();
+    final merged = <String, String>{};
+    for (final domain in _cookieDomains) {
+      try {
+        final cookies = await manager.getCookies(domain: Uri.parse(domain));
+        for (final cookie in cookies) {
+          final name = cookie.name.trim();
+          final value = cookie.value.trim();
+          if (name.isEmpty || value.isEmpty) continue;
+          // Later domains overwrite earlier ones within WebView source.
+          merged[name] = value;
+        }
+      } catch (_) {
+        // Continue other domains; never log cookie bodies.
+      }
+    }
+    return merged;
   }
 }
