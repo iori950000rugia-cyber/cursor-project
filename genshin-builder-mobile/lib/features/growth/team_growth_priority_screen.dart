@@ -13,39 +13,52 @@ class TeamGrowthPriorityScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final normalizedTeamId = teamId?.trim() ?? '';
     final reportAsync =
-        teamId != null ? ref.watch(teamGrowthPriorityProvider(teamId!)) : null;
+        normalizedTeamId.isEmpty
+            ? null
+            : ref.watch(teamGrowthPriorityProvider(normalizedTeamId));
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('\u7de8\u6210\u80b2\u6210\u512a\u5148\u5ea6')),
-      body: reportAsync == null
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text('\u7de8\u6210\u304c\u9078\u629e\u3055\u308c\u3066\u3044\u307e\u305b\u3093',
-                    style: theme.textTheme.bodyLarge),
+      appBar: AppBar(
+        title: const Text('\u7de8\u6210\u80b2\u6210\u512a\u5148\u5ea6'),
+      ),
+      body:
+          reportAsync == null
+              ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    '\u7de8\u6210\u304c\u9078\u629e\u3055\u308c\u3066\u3044\u307e\u305b\u3093',
+                    style: theme.textTheme.bodyLarge,
+                  ),
+                ),
+              )
+              : reportAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error:
+                    (_, __) => Center(
+                      child: Text(
+                        '\u8aad\u307f\u8fbc\u307f\u30a8\u30e9\u30fc',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ),
+                data: (report) => _buildReport(context, report),
               ),
-            )
-          : reportAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) => Center(child: Text('\u8aad\u307f\u8fbc\u307f\u30a8\u30e9\u30fc', style: theme.textTheme.bodyMedium)),
-              data: (report) => _buildReport(context, report),
-            ),
     );
   }
 
-  Widget _buildReport(
-    BuildContext context,
-    TeamGrowthPriorityReport report,
-  ) {
+  Widget _buildReport(BuildContext context, TeamGrowthPriorityReport report) {
     final theme = Theme.of(context);
     if (report.memberPriorities.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('\u7de8\u6210\u30e1\u30f3\u30d0\u30fc\u304c\u3044\u307e\u305b\u3093',
-              style: theme.textTheme.bodyLarge),
+          child: Text(
+            '\u7de8\u6210\u30e1\u30f3\u30d0\u30fc\u304c\u3044\u307e\u305b\u3093',
+            style: theme.textTheme.bodyLarge,
+          ),
         ),
       );
     }
@@ -68,11 +81,14 @@ class TeamGrowthPriorityScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('\u5171\u6709\u7d20\u6750', style: theme.textTheme.titleSmall),
+                    Text(
+                      '\u5171\u6709\u7d20\u6750',
+                      style: theme.textTheme.titleSmall,
+                    ),
                     const SizedBox(height: 4),
-                    ...report.sharedMaterialOpportunities.take(3).map(
-                          (m) => Text(m, style: theme.textTheme.bodySmall),
-                        ),
+                    ...report.sharedMaterialOpportunities
+                        .take(3)
+                        .map((m) => Text(m, style: theme.textTheme.bodySmall)),
                   ],
                 ),
               ),
@@ -93,18 +109,33 @@ class TeamGrowthPriorityScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (isUnowned)
-                    Text('\u672a\u6240\u6301', style: theme.textTheme.labelSmall?.copyWith(color: Colors.orange))
+                    Text(
+                      '\u672a\u6240\u6301',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: Colors.orange,
+                      ),
+                    )
                   else ...[
-                    Text('\u30b9\u30b3\u30a2: ${p.score.toStringAsFixed(2)} | \u512a\u5148\u5ea6: ${p.priority}'),
+                    Text(
+                      '\u30b9\u30b3\u30a2: ${p.score.toStringAsFixed(2)} | \u512a\u5148\u5ea6: ${p.priority}',
+                    ),
                     if (p.reasons.isNotEmpty)
-                      Text(p.reasons.first, maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelSmall),
+                      Text(
+                        p.reasons.first,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall,
+                      ),
                   ],
                 ],
               ),
-              trailing: isUnowned
-                  ? Semantics(label: '\u672a\u6240\u6301', child: const Icon(Icons.block, size: 20))
-                  : null,
+              trailing:
+                  isUnowned
+                      ? Semantics(
+                        label: '\u672a\u6240\u6301',
+                        child: const Icon(Icons.block, size: 20),
+                      )
+                      : null,
             ),
           );
         }),

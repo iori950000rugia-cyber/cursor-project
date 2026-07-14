@@ -4,8 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:genshin_builder_mobile/domain/planning/growth_route_request.dart';
+import 'package:genshin_builder_mobile/domain/planning/team_growth_priority.dart';
 import 'package:genshin_builder_mobile/features/growth/growth_route_screen.dart';
 import 'package:genshin_builder_mobile/features/growth/team_growth_priority_screen.dart';
+import 'package:genshin_builder_mobile/providers/growth_providers.dart';
 
 void main() {
   group('GrowthRouteScreen', () {
@@ -30,6 +32,60 @@ void main() {
       );
 
       expect(find.text('編成が選択されていません'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('empty teamId shows empty guidance', (tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(home: TeamGrowthPriorityScreen(teamId: '')),
+        ),
+      );
+
+      expect(find.text('編成が選択されていません'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('whitespace teamId shows empty guidance', (tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(home: TeamGrowthPriorityScreen(teamId: '   ')),
+        ),
+      );
+
+      expect(find.text('編成が選択されていません'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('teamId is trimmed before provider lookup', (tester) async {
+      // Override only for the trimmed key.
+      // If the screen passes ' team-1 ' (untrimmed), the real provider runs
+      // which requires DB → test breaks.
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            teamGrowthPriorityProvider('team-1').overrideWith(
+              (ref) async => TeamGrowthPriorityReport(
+                teamId: 'team-1',
+                teamName: 'Trimmed',
+                memberPriorities: const [
+                  TeamMemberGrowthPriority(characterId: 'char1', priority: 1),
+                ],
+              ),
+            ),
+          ],
+          child: const MaterialApp(
+            home: TeamGrowthPriorityScreen(teamId: ' team-1 '),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      // Should show the report content, not empty guidance.
+      expect(find.text('編成が選択されていません'), findsNothing);
+      expect(find.text('Trimmed'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });
