@@ -18,11 +18,56 @@ final hoyolabCookieServiceProvider = Provider<HoyolabCookieService>((ref) {
 
 final featureFlagsProvider = FutureProvider<FeatureFlags>((ref) async {
   final db = await ref.watch(appDatabaseProvider.future);
-  final raw = await db.getSetting(FeatureFlags.hoyolabLinkEnabledKey);
-  final enabled = raw == null
+  final rawHoyolab = await db.getSetting(FeatureFlags.hoyolabLinkEnabledKey);
+  final hoyolab = rawHoyolab == null
       ? FeatureFlags.defaultHoyolabLinkEnabled
-      : raw == 'true';
-  return FeatureFlags(hoyolabLinkEnabled: enabled);
+      : rawHoyolab == 'true';
+
+  final rawGoals = await db.getSetting(FeatureFlags.growthGoalsEnabledKey);
+  final goals = rawGoals == null
+      ? FeatureFlags.defaultGrowthGoalsEnabled
+      : rawGoals == 'true';
+
+  final rawInventory = await db.getSetting(FeatureFlags.materialInventoryEnabledKey);
+  final inventory = rawInventory == null
+      ? FeatureFlags.defaultMaterialInventoryEnabled
+      : rawInventory == 'true';
+
+  final rawTeams = await db.getSetting(FeatureFlags.savedTeamsEnabledKey);
+  final teams = rawTeams == null
+      ? FeatureFlags.defaultSavedTeamsEnabled
+      : rawTeams == 'true';
+
+  final rawDailyPlan = await db.getSetting(FeatureFlags.dailyPlanEnabledKey);
+  final dailyPlan = rawDailyPlan == null
+      ? FeatureFlags.defaultDailyPlanEnabled
+      : rawDailyPlan == 'true';
+
+  final rawDiag = await db.getSetting(FeatureFlags.investmentDiagnosisEnabledKey);
+  final diag = rawDiag == null
+      ? FeatureFlags.defaultInvestmentDiagnosisEnabled
+      : rawDiag == 'true';
+
+  final rawTimeline = await db.getSetting(FeatureFlags.growthTimelineEnabledKey);
+  final timeline = rawTimeline == null
+      ? FeatureFlags.defaultGrowthTimelineEnabled
+      : rawTimeline == 'true';
+
+  final rawHealth = await db.getSetting(FeatureFlags.accountHealthEnabledKey);
+  final health = rawHealth == null
+      ? FeatureFlags.defaultAccountHealthEnabled
+      : rawHealth == 'true';
+
+  return FeatureFlags(
+    hoyolabLinkEnabled: hoyolab,
+    enableGrowthGoals: goals,
+    enableMaterialInventory: inventory,
+    enableSavedTeams: teams,
+    enableDailyPlan: dailyPlan,
+    enableInvestmentDiagnosis: diag,
+    enableGrowthTimeline: timeline,
+    enableAccountHealth: health,
+  );
 });
 
 final hoyolabRepositoryProvider = FutureProvider<HoyolabRepository>((ref) async {

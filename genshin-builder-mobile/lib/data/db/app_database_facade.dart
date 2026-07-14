@@ -3,6 +3,7 @@ import '../../domain/models/calculation_models.dart';
 import '../models/master_models.dart';
 import '../models/sync_status.dart';
 import 'drift/app_database.dart' hide LevelExpSegment;
+import 'drift/daos/growth_dao.dart';
 
 /// Drift DAO への委譲ファサード（旧 sqflite [AppDatabase] と同一 API）
 class AppDatabase {
@@ -211,4 +212,8 @@ class AppDatabase {
       lastSyncedAt: lastSync,
     );
   }
+
+  // ═══ Growth / Planning DAO access ══════════════════════════════
+
+  GrowthDao get growthDao => _inner.growthDao;
 }

@@ -9,7 +9,9 @@ import '../../secure/secure_storage_service.dart';
 import '../database_path.dart';
 import 'daos/bookmark_dao.dart';
 import 'daos/character_dao.dart';
+import 'daos/growth_dao.dart';
 import 'daos/progress_dao.dart';
+import 'tables/growth_tables.dart';
 import 'tables/master_tables.dart';
 import 'tables/user_tables.dart';
 
@@ -35,8 +37,12 @@ const bool kEnableSqlCipher = bool.fromEnvironment(
     MaterialBookmarks,
     SyncLogs,
     AppSettings,
+    GrowthGoals,
+    UserMaterialInventory,
+    SavedTeams,
+    GrowthEvents,
   ],
-  daos: [CharacterDao, BookmarkDao, ProgressDao],
+  daos: [CharacterDao, BookmarkDao, ProgressDao, GrowthDao],
 )
 class DriftAppDatabase extends _$DriftAppDatabase {
   DriftAppDatabase(super.e);
@@ -44,13 +50,14 @@ class DriftAppDatabase extends _$DriftAppDatabase {
   static const _dbName = 'genshin_builder.db';
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
           await m.createAll();
           await _createIndexes(m);
+          await _createGrowthIndexes(m.database);
         },
         onUpgrade: (m, from, to) async {
           if (from < 2) {
@@ -64,6 +71,13 @@ class DriftAppDatabase extends _$DriftAppDatabase {
           }
           if (from < 6) {
             await _addUpgradeContentHashColumnsSafely(m.database);
+          }
+          if (from < 7) {
+            await m.createTable(growthGoals);
+            await m.createTable(userMaterialInventory);
+            await m.createTable(savedTeams);
+            await m.createTable(growthEvents);
+            await _createGrowthIndexes(m.database);
           }
         },
         beforeOpen: (details) async {
@@ -130,6 +144,20 @@ class DriftAppDatabase extends _$DriftAppDatabase {
       'CREATE INDEX IF NOT EXISTS idx_progress_user '
       'ON user_progress (user_id)',
     );
+  }
+
+  static Future<void> _createGrowthIndexes(GeneratedDatabase db) async {
+    final indexes = [
+      'CREATE INDEX IF NOT EXISTS idx_goals_user ON growth_goals (user_id)',
+      'CREATE INDEX IF NOT EXISTS idx_goals_character ON growth_goals (character_id)',
+      'CREATE INDEX IF NOT EXISTS idx_inventory_user ON user_material_inventory (user_id)',
+      'CREATE INDEX IF NOT EXISTS idx_teams_user ON saved_teams (user_id)',
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_events_dedup ON growth_events (dedup_key)',
+      'CREATE INDEX IF NOT EXISTS idx_events_user_char ON growth_events (user_id, character_id)',
+    ];
+    for (final sql in indexes) {
+      await db.customStatement(sql);
+    }
   }
 
   /// ネイティブ SQLCipher をロード（平文利用時も必須。鍵は別途 PRAGMA）。
