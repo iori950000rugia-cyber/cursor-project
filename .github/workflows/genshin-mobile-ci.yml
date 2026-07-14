@@ -34,6 +34,9 @@ jobs:
       - name: Pub get
         run: flutter pub get
 
+      - name: Generate code
+        run: dart run build_runner build --delete-conflicting-outputs
+
       - name: Analyze
         run: flutter analyze --no-fatal-infos
 
@@ -43,8 +46,11 @@ jobs:
           flutter test test/domain/artifact_completion_test.dart
           flutter test test/domain/artifact_score_test.dart
 
+      - name: Phase 3 tests
+        run: flutter test test/domain/phase3_upgrade_test.dart --reporter expanded
+
       - name: Test
-        run: flutter test
+        run: flutter test --reporter expanded
 
       - name: Guard against committed secrets
         working-directory: .
