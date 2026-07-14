@@ -44,7 +44,7 @@ void main() {
       );
       expect(route.days.isNotEmpty, isTrue);
       expect(route.goals.length, 2);
-      expect(route.ruleVersion, '3');
+      expect(route.ruleVersion, '4');
     });
 
     test('same input produces same output', () {
@@ -290,26 +290,14 @@ void main() {
     });
   });
 
-  // ── Fix 3: GrowthRouteRequest immutability ────────────────────────
+  // ── GrowthRouteRequest weekdayMap deep immutability ─────────────
 
   group('GrowthRouteRequest', () {
-    test('hashCode does not mutate original list', () {
-      final original = ['goal-b', 'goal-a'];
-      final before = List<String>.from(original);
-      final req = GrowthRouteRequest(
-        goalIds: original,
-        startDate: _testDate,
-        startWeekday: 3,
-      );
-      // Access hashCode should not change the original list
-      final h = req.hashCode;
-      expect(h, isNotNull);
-      expect(original, before);
-    });
+    // ── goalId immutability ────────────────────────────────────────
 
-    test('goalIds is sorted and immutable', () {
+    test('goalIds is sorted, deduplicated, and immutable', () {
       final req = GrowthRouteRequest(
-        goalIds: ['goal-b', 'goal-a'],
+        goalIds: ['goal-a', 'goal-a', 'goal-b'],
         startDate: _testDate,
         startWeekday: 3,
       );
@@ -317,42 +305,149 @@ void main() {
       expect(() => (req.goalIds as List).add('new'), throwsUnsupportedError);
     });
 
-    test('duplicate goalIds are removed on construction', () {
-      final req = GrowthRouteRequest(
-        goalIds: ['goal-a', 'goal-a', 'goal-b'],
-        startDate: _testDate,
-        startWeekday: 3,
-      );
-      expect(req.goalIds, ['goal-a', 'goal-b']);
-    });
-
-    test('same-content different-order are equal', () {
+    test('same goalIds different order are equal', () {
       final req1 = GrowthRouteRequest(
-        goalIds: ['goal-b', 'goal-a'],
-        startDate: _testDate,
-        startWeekday: 3,
+        goalIds: ['goal-b', 'goal-a'], startDate: _testDate, startWeekday: 3,
       );
       final req2 = GrowthRouteRequest(
-        goalIds: ['goal-a', 'goal-b'],
-        startDate: _testDate,
-        startWeekday: 3,
+        goalIds: ['goal-a', 'goal-b'], startDate: _testDate, startWeekday: 3,
       );
       expect(req1, req2);
       expect(req1.hashCode, req2.hashCode);
     });
 
-    test('different content are not equal', () {
+    test('different goalIds are not equal', () {
+      final req1 = GrowthRouteRequest(goalIds: ['goal-a'], startDate: _testDate, startWeekday: 3);
+      final req2 = GrowthRouteRequest(goalIds: ['goal-b'], startDate: _testDate, startWeekday: 3);
+      expect(req1, isNot(req2));
+    });
+
+    // ── weekdayMap immutability ────────────────────────────────────
+
+    test('weekdayMap is not affected by source map mutation', () {
+      final source = <String, Set<int>>{'material-a': {1, 4, 7}};
+      final req = GrowthRouteRequest(
+        goalIds: ['goal-a'], startDate: _testDate, startWeekday: 1,
+        weekdayMap: source,
+      );
+      source['material-b'] = {2, 5, 7};
+      source.remove('material-a');
+
+      expect(req.weekdayMap!.length, 1);
+      expect(req.weekdayMap!['material-a'], {1, 4, 7});
+      expect(req.weekdayMap!['material-b'], isNull);
+    });
+
+    test('weekdayMap is not affected by source set mutation', () {
+      final days = <int>{1, 4, 7};
+      final source = <String, Set<int>>{'material-a': days};
+      final req = GrowthRouteRequest(
+        goalIds: ['goal-a'], startDate: _testDate, startWeekday: 1,
+        weekdayMap: source,
+      );
+      days.clear();
+      days.add(2);
+
+      expect(req.weekdayMap!['material-a'], {1, 4, 7});
+    });
+
+    test('request weekdayMap cannot be mutated', () {
+      final req = GrowthRouteRequest(
+        goalIds: ['goal-a'], startDate: _testDate, startWeekday: 1,
+        weekdayMap: {'material-a': {1, 4}},
+      );
+      expect(
+        () => (req.weekdayMap as Map)['material-b'] = {2},
+        throwsUnsupportedError,
+      );
+    });
+
+    test('request weekdayMap inner set cannot be mutated', () {
+      final req = GrowthRouteRequest(
+        goalIds: ['goal-a'], startDate: _testDate, startWeekday: 1,
+        weekdayMap: {'material-a': {1, 4}},
+      );
+      expect(
+        () => req.weekdayMap!['material-a']!.add(2),
+        throwsUnsupportedError,
+      );
+    });
+
+    // ── weekdayMap equality ────────────────────────────────────────
+
+    test('weekdayMap order-independent equality', () {
       final req1 = GrowthRouteRequest(
-        goalIds: ['goal-a'],
-        startDate: _testDate,
-        startWeekday: 3,
+        goalIds: ['goal-a'], startDate: _testDate, startWeekday: 1,
+        weekdayMap: {'mat_a': {1, 4, 7}, 'mat_b': {2, 5, 7}},
       );
       final req2 = GrowthRouteRequest(
-        goalIds: ['goal-b'],
-        startDate: _testDate,
-        startWeekday: 3,
+        goalIds: ['goal-a'], startDate: _testDate, startWeekday: 1,
+        weekdayMap: {'mat_b': {7, 5, 2}, 'mat_a': {7, 1, 4}},
+      );
+      expect(req1, req2);
+      expect(req1.hashCode, req2.hashCode);
+    });
+
+    test('different weekday values → not equal', () {
+      final req1 = GrowthRouteRequest(
+        goalIds: ['goal-a'], startDate: _testDate, startWeekday: 1,
+        weekdayMap: {'mat_a': {1, 4, 7}},
+      );
+      final req2 = GrowthRouteRequest(
+        goalIds: ['goal-a'], startDate: _testDate, startWeekday: 1,
+        weekdayMap: {'mat_a': {2, 5, 7}},
       );
       expect(req1, isNot(req2));
+    });
+
+    test('different material keys → not equal', () {
+      final r1 = GrowthRouteRequest(
+        goalIds: ['goal-a'], startDate: _testDate, startWeekday: 1,
+        weekdayMap: {'mat_a': {1}},
+      );
+      final r2 = GrowthRouteRequest(
+        goalIds: ['goal-a'], startDate: _testDate, startWeekday: 1,
+        weekdayMap: {'mat_b': {1}},
+      );
+      expect(r1, isNot(r2));
+    });
+
+    test('null and empty map are not equal', () {
+      final reqNull = GrowthRouteRequest(
+        goalIds: ['goal-a'], startDate: _testDate, startWeekday: 1,
+        weekdayMap: null,
+      );
+      final reqEmpty = GrowthRouteRequest(
+        goalIds: ['goal-a'], startDate: _testDate, startWeekday: 1,
+        weekdayMap: {},
+      );
+      expect(reqNull, isNot(reqEmpty));
+    });
+
+    test('empty maps are equal', () {
+      final req1 = GrowthRouteRequest(
+        goalIds: ['goal-a'], startDate: _testDate, startWeekday: 1,
+        weekdayMap: {},
+      );
+      final req2 = GrowthRouteRequest(
+        goalIds: ['goal-a'], startDate: _testDate, startWeekday: 1,
+        weekdayMap: {},
+      );
+      expect(req1, req2);
+      expect(req1.hashCode, req2.hashCode);
+    });
+
+    test('hashCode access does not mutate source', () {
+      final source = <String, Set<int>>{'mat_a': {1, 4}};
+      final before = source.length;
+      final req = GrowthRouteRequest(
+        goalIds: ['goal-a'], startDate: _testDate, startWeekday: 1,
+        weekdayMap: source,
+      );
+      final h = req.hashCode;
+      expect(h, isNotNull);
+      expect(source.length, before);
+      expect(source['mat_a'], {1, 4});
     });
   });
 }
