@@ -49,7 +49,7 @@ CharacterSnapshot _testChar(String id, {int level = 1, int weaponLevel = 1, bool
 void main() {
   group('Team validation', () {
     test('Team.validate rejects duplicate characters', () {
-      final team = Team(
+      const team = Team(
         id: 't1',
         name: 'Test',
         members: [
@@ -71,7 +71,7 @@ void main() {
     });
 
     test('Team.validate accepts valid team', () {
-      final team = Team(
+      const team = Team(
         id: 't1',
         name: 'Test',
         members: [
@@ -115,7 +115,7 @@ void main() {
     });
 
     test('snapshot with goals produces items', () {
-      final goal = GrowthGoal(
+      const goal = GrowthGoal(
         id: 'g1',
         userId: 'test',
         characterId: '10000002',
@@ -165,7 +165,7 @@ void main() {
 
     test('level below goal produces finding', () {
       final char = _testChar('10000002', level: 1);
-      final goal = GrowthGoal(
+      const goal = GrowthGoal(
         id: 'g1', userId: 'test', characterId: '10000002',
         targetLevel: 90, status: GrowthGoalStatus.active,
       );
@@ -284,11 +284,12 @@ void main() {
 
   group('UpgradeOption', () {
     test('UpgradeOption fields are accessible', () {
-      final opt = UpgradeOption(
+      const opt = UpgradeOption(
+        optionId: 'opt1',
         characterId: '10000002',
         optionType: 'level',
-        fromLevel: 1,
-        toLevel: 90,
+        fromValue: 1,
+        toValue: 90,
         priority: 1,
       );
       expect(opt.characterId, '10000002');
@@ -296,9 +297,9 @@ void main() {
     });
 
     test('UpgradeImpact stores effect', () {
-      final impact = UpgradeImpact(relativeEffect: 0.064, area: 'singleTarget');
-      expect(impact.relativeEffect, 0.064);
-      expect(impact.area, 'singleTarget');
+      const impact = UpgradeImpact(impactScore: 0.064, affectedAreas: ['singleTarget']);
+      expect(impact.impactScore, 0.064);
+      expect(impact.affectedAreas.first, 'singleTarget');
     });
   });
 }

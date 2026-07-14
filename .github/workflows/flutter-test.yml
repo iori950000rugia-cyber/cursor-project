@@ -1,0 +1,38 @@
+name: Flutter Tests
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "genshin-builder-mobile/**"
+      - ".github/workflows/flutter-test.yml"
+  pull_request:
+    paths:
+      - "genshin-builder-mobile/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: genshin-builder-mobile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.5"
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - run: dart run build_runner build --delete-conflicting-outputs
+
+      - run: flutter analyze
+
+      - run: flutter test test/domain/phase3_upgrade_test.dart --reporter expanded
+
+      - run: flutter test --reporter expanded
