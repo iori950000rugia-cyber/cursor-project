@@ -13,7 +13,7 @@ import '../../domain/recommendation/recommendation.dart';
 class OptimizeGrowthRouteUseCase {
   const OptimizeGrowthRouteUseCase();
 
-  static const ruleVersion = '3';
+  static const ruleVersion = '4';
   static const defaultDayCount = 7;
 
   GrowthRoute call({
@@ -30,7 +30,6 @@ class OptimizeGrowthRouteUseCase {
     final unresolved = <String>[];
     final wkMap = weekdayMap ?? const {};
 
-    // Sort remaining by priority desc, then impact desc, then optionId asc
     _sortRemaining(remaining);
 
     for (var d = 0; d < dayCount; d++) {
@@ -39,23 +38,17 @@ class OptimizeGrowthRouteUseCase {
       final actions = <GrowthRouteAction>[];
       var dayResin = 0;
 
-      final candidates = List<UpgradeOption>.from(remaining);
+      // Build candidates for today:
+      // - Non-weekday-limited: always included
+      // - Weekday-limited + matches today: included
+      // - Weekday-limited + does NOT match: excluded (stays in remaining)
+      final candidatesForToday = remaining.where((opt) {
+        if (!_isWeekdayLimited(opt)) return true;
+        return _matchesDay(opt, weekday, wkMap);
+      }).toList();
+      candidatesForToday.sort((a, b) => _compareOption(a, b));
 
-      // 1. Weekday-limited materials for this day
-      final weekdayItems = candidates
-          .where((o) => _isWeekdayLimited(o) && _matchesDay(o, weekday, wkMap))
-          .toList();
-      for (final opt in weekdayItems) {
-        if (!_withinBudget(dailyResinBudget, dayResin, opt)) continue;
-        actions.add(_toAction(opt, 'weekdayMaterial'));
-        dayResin += opt.estimatedResinCost ?? 0;
-        remaining.remove(opt);
-      }
-
-      // 2. High priority + general
-      candidates.removeWhere((o) => !remaining.contains(o));
-      candidates.sort((a, b) => _compareOption(a, b, weekday, wkMap));
-      for (final opt in candidates) {
+      for (final opt in candidatesForToday) {
         if (actions.length >= 6) break;
         if (!_withinBudget(dailyResinBudget, dayResin, opt)) continue;
         final at = _isWeekdayLimited(opt) && _matchesDay(opt, weekday, wkMap)
@@ -101,13 +94,7 @@ class OptimizeGrowthRouteUseCase {
 
   // ── Option comparison (priority desc → impact desc → optionId asc) ──
 
-  static int _compareOption(UpgradeOption a, UpgradeOption b, int weekday, Map<String, Set<int>> wkMap) {
-    // Weekday-limited items for today first
-    final aIsDay = _isWeekdayLimited(a) && _matchesDay(a, weekday, wkMap);
-    final bIsDay = _isWeekdayLimited(b) && _matchesDay(b, weekday, wkMap);
-    if (aIsDay && !bIsDay) return -1;
-    if (bIsDay && !aIsDay) return 1;
-
+  static int _compareOption(UpgradeOption a, UpgradeOption b) {
     int cmp = b.priority.compareTo(a.priority);
     if (cmp != 0) return cmp;
 
@@ -120,15 +107,7 @@ class OptimizeGrowthRouteUseCase {
   }
 
   static void _sortRemaining(List<UpgradeOption> list) {
-    list.sort((a, b) {
-      int cmp = b.priority.compareTo(a.priority);
-      if (cmp != 0) return cmp;
-      final aImp = a.impact?.impactScore ?? 0;
-      final bImp = b.impact?.impactScore ?? 0;
-      cmp = bImp.compareTo(aImp);
-      if (cmp != 0) return cmp;
-      return a.optionId.compareTo(b.optionId);
-    });
+    list.sort(_compareOption);
   }
 
   // ── Budget ────────────────────────────────────────────────────────
@@ -148,15 +127,15 @@ class OptimizeGrowthRouteUseCase {
       o.optionType == 'weapon';
 
   /// Returns true if at least one of [o]'s materials is available on [weekday].
-  /// If [weekdayMap] is empty, all days are treated as valid (conservative).
+  /// If [weekdayMap] is empty, all days are treated as valid (conservative fallback).
   static bool _matchesDay(UpgradeOption o, int weekday, Map<String, Set<int>> weekdayMap) {
     if (o.materialsCost.isEmpty) return false;
-    if (weekdayMap.isEmpty) return true; // no data → assume all days
+    if (weekdayMap.isEmpty) return true; // no data → assume all days (fallback)
     for (final matId in o.materialsCost.keys) {
       final days = weekdayMap[matId];
       if (days != null && days.contains(weekday)) return true;
     }
-    return false; // none of the materials are available today
+    return false;
   }
 
   // ── Action builder ────────────────────────────────────────────────

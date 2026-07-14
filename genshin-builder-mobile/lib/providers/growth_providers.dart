@@ -24,6 +24,7 @@ import '../data/repositories/drift_growth_goal_repository.dart';
 import '../data/repositories/drift_material_inventory_repository.dart';
 import '../data/repositories/drift_team_repository.dart';
 import '../data/repositories/drift_growth_event_repository.dart';
+import '../domain/daily_materials/daily_material_models.dart';
 import 'app_providers.dart';
 import 'hoyolab_providers.dart' show featureFlagsProvider;
 import 'hoyolab_snapshot_providers.dart' show buildSnapshotSupplement;
@@ -175,10 +176,33 @@ final growthRouteProvider =
   if (options.isEmpty) {
     return GrowthRoute(userId: snapshot.userId, startDate: req.startDate, endDate: req.startDate);
   }
+
+  // Build weekdayMap from daily material schedule if available.
+  Map<String, Set<int>>? weekdayMap;
+  if (req.weekdayMap != null) {
+    weekdayMap = req.weekdayMap;
+  } else {
+    try {
+      final scheduleRepo = ref.watch(dailyMaterialScheduleRepositoryProvider);
+      final schedule = await scheduleRepo.getSchedule();
+      final built = <String, Set<int>>{};
+      for (final series in schedule.talentSeries.followedBy(schedule.weaponSeries)) {
+        final daySet = series.days.toSet();
+        for (final matId in series.materialIds) {
+          built[matId] = daySet;
+        }
+      }
+      weekdayMap = built;
+    } catch (_) {
+      weekdayMap = null;
+    }
+  }
+
   return const OptimizeGrowthRouteUseCase()(
     userId: snapshot.userId, options: options,
     startDate: req.startDate, startWeekday: req.startWeekday,
     dailyResinBudget: req.dailyResinBudget,
+    weekdayMap: weekdayMap,
   );
 });
 

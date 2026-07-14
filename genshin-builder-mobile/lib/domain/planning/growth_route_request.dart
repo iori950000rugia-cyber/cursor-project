@@ -1,40 +1,48 @@
 /// Stable request for [OptimizeGrowthRouteUseCase].
-/// Used as a Provider family key — must have value equality.
+/// Used as a Provider family key — fully immutable.
 class GrowthRouteRequest {
-  const GrowthRouteRequest({
-    required this.goalIds,
+  GrowthRouteRequest({
+    required List<String> goalIds,
     required this.startDate,
     required this.startWeekday,
     this.dailyResinBudget,
-  });
+    this.weekdayMap,
+  }) : goalIds = List.unmodifiable(
+          List<String>.from(goalIds.toSet())..sort(), // dedupe + sort
+        );
 
+  /// Sorted, deduplicated list of goal IDs (immutable).
   final List<String> goalIds;
+
   final DateTime startDate;
-  final int startWeekday;
+  final int startWeekday; // 1=Mon..7=Sun
   final int? dailyResinBudget;
+
+  /// materialId → available weekdays (1=Mon..7=Sun).
+  final Map<String, Set<int>>? weekdayMap;
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is GrowthRouteRequest &&
-      other.startWeekday == startWeekday &&
-      other.dailyResinBudget == dailyResinBudget &&
-      other.startDate == startDate &&
-      _listEquals(other.goalIds, goalIds);
+          other.startDate == startDate &&
+          other.startWeekday == startWeekday &&
+          other.dailyResinBudget == dailyResinBudget &&
+          _listEquals(other.goalIds, goalIds);
 
   @override
   int get hashCode => Object.hash(
-        Object.hashAll(goalIds..sort()),
+        Object.hashAll(goalIds),
         startDate,
         startWeekday,
         dailyResinBudget,
       );
 
   static bool _listEquals(List<String> a, List<String> b) {
+    if (identical(a, b)) return true;
     if (a.length != b.length) return false;
-    final sa = List<String>.from(a)..sort();
-    final sb = List<String>.from(b)..sort();
-    for (var i = 0; i < sa.length; i++) {
-      if (sa[i] != sb[i]) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
     }
     return true;
   }

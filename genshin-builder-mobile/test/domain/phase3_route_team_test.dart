@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:genshin_builder_mobile/domain/planning/upgrade_option.dart';
+import 'package:genshin_builder_mobile/domain/planning/growth_route_request.dart';
 import 'package:genshin_builder_mobile/domain/team/team_models.dart';
 import 'package:genshin_builder_mobile/domain/account/account_snapshot.dart';
 import 'package:genshin_builder_mobile/application/planning/optimize_growth_route_use_case.dart';
@@ -126,6 +127,60 @@ void main() {
       final firstDayCount = route.days.isNotEmpty ? route.days.first.actions.length : 0;
       expect(firstDayCount, lessThanOrEqualTo(1));
     });
+
+    // ── Fix 1: weekday-limited items NOT placed on wrong days ────────
+
+    test('weekday-limited item not placed on unavailable weekday as generalMaterial', () {
+      final options = [
+        UpgradeOption(optionId: 'talent_tue', characterId: 'c1', optionType: 'talentNormal',
+            fromValue: 1, toValue: 8, priority: 2,
+            materialsCost: {'mat_tue_only': 3},
+            calculationMode: CalculationMode.exactMasterData),
+        UpgradeOption(optionId: 'non_limited', characterId: 'c1', optionType: 'level',
+            fromValue: 1, toValue: 10, priority: 1,
+            materialsCost: {'mat_any': 2},
+            calculationMode: CalculationMode.exactMasterData),
+      ];
+      final wkMap = {'mat_tue_only': {3}}; // only Wednesday
+
+      // Monday (weekday=1) — talent should NOT appear
+      final routeMon = const OptimizeGrowthRouteUseCase()(
+        userId: 'local', options: options, startDate: _testDate, startWeekday: 1,
+        weekdayMap: wkMap,
+      );
+      final monDay = routeMon.days.firstOrNull;
+      expect(monDay, isNotNull);
+      if (monDay != null) {
+        final hasTalent = monDay.actions.any((a) => a.optionId == 'talent_tue');
+        expect(hasTalent, isFalse,
+            reason: 'Weekday-limited option must not appear as any action type on wrong day');
+        // Non-limited item should appear
+        final hasNonLimited = monDay.actions.any((a) => a.optionId == 'non_limited');
+        expect(hasNonLimited, isTrue);
+      }
+    });
+
+    test('weekday-limited item placed on correct weekday', () {
+      final options = [
+        UpgradeOption(optionId: 'talent_tue', characterId: 'c1', optionType: 'talentNormal',
+            fromValue: 1, toValue: 8, priority: 2,
+            materialsCost: {'mat_tue_only': 3},
+            calculationMode: CalculationMode.exactMasterData),
+      ];
+      final wkMap = {'mat_tue_only': {3}}; // Wednesday
+
+      // Wednesday (weekday=3) — talent SHOULD appear
+      final routeWed = const OptimizeGrowthRouteUseCase()(
+        userId: 'local', options: options, startDate: _testDate, startWeekday: 3,
+        weekdayMap: wkMap,
+      );
+      final wedDay = routeWed.days.firstOrNull;
+      expect(wedDay, isNotNull);
+      if (wedDay != null) {
+        final hasTalent = wedDay.actions.any((a) => a.optionId == 'talent_tue');
+        expect(hasTalent, isTrue);
+      }
+    });
   });
 
   group('GenerateTeamGrowthPriorityUseCase', () {
@@ -232,6 +287,72 @@ void main() {
       );
       expect(r1.memberPriorities.map((p) => p.characterId).toList(),
           r2.memberPriorities.map((p) => p.characterId).toList());
+    });
+  });
+
+  // ── Fix 3: GrowthRouteRequest immutability ────────────────────────
+
+  group('GrowthRouteRequest', () {
+    test('hashCode does not mutate original list', () {
+      final original = ['goal-b', 'goal-a'];
+      final before = List<String>.from(original);
+      final req = GrowthRouteRequest(
+        goalIds: original,
+        startDate: _testDate,
+        startWeekday: 3,
+      );
+      // Access hashCode should not change the original list
+      final h = req.hashCode;
+      expect(h, isNotNull);
+      expect(original, before);
+    });
+
+    test('goalIds is sorted and immutable', () {
+      final req = GrowthRouteRequest(
+        goalIds: ['goal-b', 'goal-a'],
+        startDate: _testDate,
+        startWeekday: 3,
+      );
+      expect(req.goalIds, ['goal-a', 'goal-b']);
+      expect(() => (req.goalIds as List).add('new'), throwsUnsupportedError);
+    });
+
+    test('duplicate goalIds are removed on construction', () {
+      final req = GrowthRouteRequest(
+        goalIds: ['goal-a', 'goal-a', 'goal-b'],
+        startDate: _testDate,
+        startWeekday: 3,
+      );
+      expect(req.goalIds, ['goal-a', 'goal-b']);
+    });
+
+    test('same-content different-order are equal', () {
+      final req1 = GrowthRouteRequest(
+        goalIds: ['goal-b', 'goal-a'],
+        startDate: _testDate,
+        startWeekday: 3,
+      );
+      final req2 = GrowthRouteRequest(
+        goalIds: ['goal-a', 'goal-b'],
+        startDate: _testDate,
+        startWeekday: 3,
+      );
+      expect(req1, req2);
+      expect(req1.hashCode, req2.hashCode);
+    });
+
+    test('different content are not equal', () {
+      final req1 = GrowthRouteRequest(
+        goalIds: ['goal-a'],
+        startDate: _testDate,
+        startWeekday: 3,
+      );
+      final req2 = GrowthRouteRequest(
+        goalIds: ['goal-b'],
+        startDate: _testDate,
+        startWeekday: 3,
+      );
+      expect(req1, isNot(req2));
     });
   });
 }
