@@ -17,6 +17,7 @@ import '../domain/planning/daily_plan.dart';
 import '../domain/planning/investment_diagnosis.dart';
 import '../domain/planning/upgrade_option.dart';
 import '../domain/planning/growth_route.dart';
+import '../domain/planning/growth_route_request.dart';
 import '../domain/planning/team_growth_priority.dart';
 import '../domain/team/team_models.dart';
 import '../data/repositories/drift_growth_goal_repository.dart';
@@ -164,19 +165,20 @@ final upgradeImpactProvider =
 });
 
 final growthRouteProvider =
-    FutureProvider.family<GrowthRoute, List<String>>((ref, goalIds) async {
+    FutureProvider.family<GrowthRoute, GrowthRouteRequest>((ref, req) async {
   final snapshot = await ref.watch(accountSnapshotProvider.future);
   final options = <UpgradeOption>[];
-  for (final gid in goalIds) {
+  for (final gid in req.goalIds) {
     final goalOpts = await ref.watch(upgradeOptionsProvider(gid).future);
     options.addAll(goalOpts);
   }
   if (options.isEmpty) {
-    return GrowthRoute(userId: snapshot.userId, startDate: DateTime.now(), endDate: DateTime.now());
+    return GrowthRoute(userId: snapshot.userId, startDate: req.startDate, endDate: req.startDate);
   }
   return const OptimizeGrowthRouteUseCase()(
     userId: snapshot.userId, options: options,
-    startWeekday: DateTime.now().weekday,
+    startDate: req.startDate, startWeekday: req.startWeekday,
+    dailyResinBudget: req.dailyResinBudget,
   );
 });
 

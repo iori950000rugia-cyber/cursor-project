@@ -6,11 +6,11 @@ import 'package:genshin_builder_mobile/domain/account/account_snapshot.dart';
 import 'package:genshin_builder_mobile/application/planning/optimize_growth_route_use_case.dart';
 import 'package:genshin_builder_mobile/application/planning/generate_team_growth_priority_use_case.dart';
 
+final _testDate = DateTime(2026, 7, 15);
+
 AccountSnapshot _testSnapshot(List<CharacterSnapshot> chars) => AccountSnapshot(
-      userId: 'local',
-      characters: chars,
-      acquiredAt: DateTime.now(),
-      sources: ['test'],
+      userId: 'local', characters: chars,
+      acquiredAt: _testDate, sources: ['test'],
     );
 
 CharacterSnapshot _testChar(String id, {int level = 1, int weaponLevel = 1}) =>
@@ -24,7 +24,7 @@ void main() {
   group('OptimizeGrowthRouteUseCase', () {
     test('empty options produces empty route', () {
       final route = const OptimizeGrowthRouteUseCase()(
-        userId: 'local', options: [], startWeekday: 1,
+        userId: 'local', options: [], startDate: _testDate, startWeekday: 3,
       );
       expect(route.days, isEmpty);
     });
@@ -39,11 +39,11 @@ void main() {
             calculationMode: CalculationMode.exactMasterData),
       ];
       final route = const OptimizeGrowthRouteUseCase()(
-        userId: 'local', options: options, startWeekday: 1,
+        userId: 'local', options: options, startDate: _testDate, startWeekday: 3,
       );
       expect(route.days.isNotEmpty, isTrue);
       expect(route.goals.length, 2);
-      expect(route.ruleVersion, '2');
+      expect(route.ruleVersion, '3');
     });
 
     test('same input produces same output', () {
@@ -53,12 +53,15 @@ void main() {
             calculationMode: CalculationMode.exactMasterData),
       ];
       final route1 = const OptimizeGrowthRouteUseCase()(
-        userId: 'local', options: options, startWeekday: 1,
+        userId: 'local', options: options, startDate: _testDate, startWeekday: 3,
       );
       final route2 = const OptimizeGrowthRouteUseCase()(
-        userId: 'local', options: options, startWeekday: 1,
+        userId: 'local', options: options, startDate: _testDate, startWeekday: 3,
       );
       expect(route1.days.length, route2.days.length);
+      expect(route1.days.map((d) => d.date).toList(), route2.days.map((d) => d.date).toList());
+      expect(route1.unresolvedCosts, route2.unresolvedCosts);
+      expect(route1.ruleVersion, route2.ruleVersion);
     });
 
     test('defaultDayCount is 7', () {
@@ -72,9 +75,56 @@ void main() {
             calculationMode: CalculationMode.estimatedInventoryMissing),
       ];
       final route = const OptimizeGrowthRouteUseCase()(
-        userId: 'local', options: options, startWeekday: 1,
+        userId: 'local', options: options, startDate: _testDate, startWeekday: 3,
       );
       expect(route.confidence, isNotNull);
+    });
+
+    test('weekday-limited option placed on correct day', () {
+      final options = [
+        UpgradeOption(optionId: 'tue', characterId: 'c1', optionType: 'talentNormal',
+            fromValue: 1, toValue: 8, priority: 2,
+            materialsCost: {'mat_tue': 3},
+            calculationMode: CalculationMode.exactMasterData),
+      ];
+      final wkMap = {'mat_tue': {3}}; // material available on Wednesday
+
+      final routeWed = const OptimizeGrowthRouteUseCase()(
+        userId: 'local', options: options, startDate: _testDate, startWeekday: 3,
+        weekdayMap: wkMap,
+      );
+      // Wednesday is the first day, so it should be scheduled
+      final wedActions = routeWed.days.isNotEmpty ? routeWed.days.first.actions : [];
+      expect(wedActions.isNotEmpty, isTrue);
+
+      // Monday: material not available
+      final routeMon = const OptimizeGrowthRouteUseCase()(
+        userId: 'local', options: options, startDate: _testDate, startWeekday: 1,
+        weekdayMap: wkMap,
+      );
+      final monActions = routeMon.days.isNotEmpty ? routeMon.days.first.actions : [];
+      final hasWeekdayItem = monActions.any((a) => a.actionType == 'weekdayMaterial');
+      expect(hasWeekdayItem, isFalse);
+    });
+
+    test('daily budget respects resin limit', () {
+      final options = [
+        UpgradeOption(optionId: 'o1', characterId: 'c1', optionType: 'level',
+            fromValue: 1, toValue: 90, priority: 2,
+            estimatedResinCost: 200,
+            calculationMode: CalculationMode.exactMasterData),
+        UpgradeOption(optionId: 'o2', characterId: 'c1', optionType: 'talentBurst',
+            fromValue: 1, toValue: 10, priority: 1,
+            estimatedResinCost: 200,
+            calculationMode: CalculationMode.exactMasterData),
+      ];
+      final route = const OptimizeGrowthRouteUseCase()(
+        userId: 'local', options: options, startDate: _testDate, startWeekday: 1,
+        dailyResinBudget: 200,
+      );
+      // One action per day with budget=200 and cost=200 each
+      final firstDayCount = route.days.isNotEmpty ? route.days.first.actions.length : 0;
+      expect(firstDayCount, lessThanOrEqualTo(1));
     });
   });
 
@@ -99,7 +149,7 @@ void main() {
         team: team, snapshot: snapshot, upgradeOptionsByCharacter: {},
       );
       expect(report.memberPriorities.length, 4);
-      // Higher level = lower priority (since fewer issues)
+      // Lower level = higher priority (since more issues)
       expect(report.memberPriorities.first.characterId, 'id0');
     });
 
@@ -110,7 +160,7 @@ void main() {
         TeamMemberSlot(characterId: 'c1', position: 0),
         TeamMemberSlot(characterId: 'c2', position: 1),
       ]);
-      final options = {
+      final opts = {
         'c1': [
           UpgradeOption(optionId: 'opt', characterId: 'c1', optionType: 'level',
             fromValue: 80, toValue: 90, priority: 2,
@@ -119,7 +169,7 @@ void main() {
         ],
       };
       final report = const GenerateTeamGrowthPriorityUseCase()(
-        team: team, snapshot: snapshot, upgradeOptionsByCharacter: options,
+        team: team, snapshot: snapshot, upgradeOptionsByCharacter: opts,
       );
       expect(report.memberPriorities.first.characterId, 'c1');
     });
@@ -149,7 +199,7 @@ void main() {
         TeamMemberSlot(characterId: 'c1', position: 0),
         TeamMemberSlot(characterId: 'c2', position: 1),
       ]);
-      final options = {
+      final opts = {
         'c1': [
           UpgradeOption(optionId: 's1', characterId: 'c1', optionType: 'level',
             fromValue: 1, toValue: 90, materialsCost: {'mat_x': 10},
@@ -162,7 +212,7 @@ void main() {
         ],
       };
       final report = const GenerateTeamGrowthPriorityUseCase()(
-        team: team, snapshot: snapshot, upgradeOptionsByCharacter: options,
+        team: team, snapshot: snapshot, upgradeOptionsByCharacter: opts,
       );
       expect(report.sharedMaterialOpportunities, isNotEmpty);
     });

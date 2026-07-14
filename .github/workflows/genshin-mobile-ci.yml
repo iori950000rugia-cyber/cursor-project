@@ -47,7 +47,9 @@ jobs:
           flutter test test/domain/artifact_score_test.dart
 
       - name: Phase 3 tests
-        run: flutter test test/domain/phase3_upgrade_test.dart --reporter expanded
+        run: |
+          flutter test test/domain/phase3_upgrade_test.dart --reporter expanded
+          flutter test test/domain/phase3_route_team_test.dart --reporter expanded
 
       - name: Test
         run: flutter test --reporter expanded
