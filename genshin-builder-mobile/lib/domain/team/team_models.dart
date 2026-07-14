@@ -31,6 +31,21 @@ class Team {
 
   bool get isFull => members.length >= 4;
 
+  static const maxSize = 4;
+
+  /// Validates team constraints. Returns null if valid, or an error message.
+  static String? validate(Team team) {
+    if (team.id.isEmpty) return 'Team id must not be empty';
+    if (team.name.isEmpty) return 'Team name must not be empty';
+    if (team.members.length > maxSize) return 'Team cannot have more than $maxSize members';
+    final ids = <String>{};
+    for (final m in team.members) {
+      if (m.characterId.isEmpty) return 'Member characterId must not be empty';
+      if (!ids.add(m.characterId)) return 'Duplicate character ${m.characterId} in team';
+    }
+    return null;
+  }
+
   Team copyWith({
     String? id,
     String? name,
