@@ -14,6 +14,9 @@ class DailyPlanScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final planAsync = ref.watch(dailyPlanProvider);
     final theme = Theme.of(context);
+    // Normalize to date boundary once (not per-item).
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
 
     return Scaffold(
       appBar: AppBar(title: const Text('\u4eca\u65e5\u3084\u308b\u3053\u3068')),
@@ -30,6 +33,15 @@ class DailyPlanScreen extends ConsumerWidget {
               ),
             );
           }
+
+          // Build GrowthRouteRequest once, not per item.
+          final goalIds = plan.items.map((item) => item.id).toList();
+          final routeReq = GrowthRouteRequest(
+            goalIds: goalIds,
+            startDate: today,
+            startWeekday: today.weekday,
+          );
+
           return Column(
             children: [
               Expanded(
@@ -38,17 +50,10 @@ class DailyPlanScreen extends ConsumerWidget {
                   itemCount: plan.items.length + 1,
                   itemBuilder: (ctx, i) {
                     if (i == plan.items.length) {
-                      // Navigation link to growth route
-                      final goalIds = plan.items.map((item) => item.id).toList();
-                      final req = GrowthRouteRequest(
-                        goalIds: goalIds,
-                        startDate: DateTime.now(),
-                        startWeekday: DateTime.now().weekday,
-                      );
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         child: OutlinedButton.icon(
-                          onPressed: () => context.push('/growth-route', extra: req),
+                          onPressed: () => context.push('/growth-route', extra: routeReq),
                           icon: const Icon(Icons.route),
                           label: const Text('\u80b2\u6210\u30eb\u30fc\u30c8\u3092\u4f5c\u6210'),
                         ),

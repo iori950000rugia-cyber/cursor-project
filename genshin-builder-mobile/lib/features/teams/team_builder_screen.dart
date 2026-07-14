@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../application/element_colors.dart';
 import '../../domain/game_display.dart';
@@ -183,6 +184,15 @@ class _TeamBuilderScreenState extends ConsumerState<TeamBuilderScreen> {
 
   // ── Future hint ────────────────────────────────────────────────────────
 
+  Widget _buildTeamPriorityButton(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: () =>
+          context.push('/team-priority', extra: 'team_${DateTime.now().millisecondsSinceEpoch}'),
+      icon: const Icon(Icons.sort),
+      label: const Text('\u3053\u306e\u7de8\u6210\u306e\u80b2\u6210\u512a\u5148\u5ea6\u3092\u898b\u308b'),
+    );
+  }
+
   Widget _buildFutureHint(ThemeData theme) {
     return Card(
       child: Padding(
@@ -244,6 +254,9 @@ class _TeamBuilderScreenState extends ConsumerState<TeamBuilderScreen> {
                 _buildHintText(theme),
                 const SizedBox(height: 12),
                 _buildSlots(),
+                const SizedBox(height: 16),
+                if (_selectedCount > 0)
+                  _buildTeamPriorityButton(context),
                 const SizedBox(height: 24),
                 _buildFutureHint(theme),
               ],
