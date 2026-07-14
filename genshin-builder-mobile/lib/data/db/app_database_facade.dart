@@ -216,4 +216,8 @@ class AppDatabase {
   // ═══ Growth / Planning DAO access ══════════════════════════════
 
   GrowthDao get growthDao => _inner.growthDao;
+
+  /// Expose the raw DriftAppDatabase for transaction boundaries.
+  Future<T> transaction<T>(Future<T> Function() action) =>
+      _inner.transaction(action);
 }

@@ -161,10 +161,19 @@ class GrowthDao extends DatabaseAccessor<DriftAppDatabase>
     }
   }
 
-  Future<List<GrowthEvent>> eventsGetByUser(String userId, {int? limit}) {
+  Future<List<GrowthEvent>> eventsGetByUser(String userId, {int limit = 50, DateTime? beforeObservedAt, String? beforeEventId}) {
     var q = select(growthEvents)..where((t) => t.userId.equals(userId));
+    if (beforeObservedAt != null && beforeEventId != null) {
+      q = q..where((t) =>
+            t.observedAt.isSmallerThanValue(beforeObservedAt.millisecondsSinceEpoch) |
+            (t.observedAt.equals(beforeObservedAt.millisecondsSinceEpoch) &
+             t.eventId.isSmallerThanValue(beforeEventId)));
+    } else if (beforeObservedAt != null) {
+      q = q..where((t) => t.observedAt.isSmallerThanValue(beforeObservedAt.millisecondsSinceEpoch));
+    }
     q = q..orderBy([(t) => OrderingTerm(expression: t.observedAt, mode: OrderingMode.desc)]);
-    if (limit != null) q = q..limit(limit);
+    q = q..orderBy([(t) => OrderingTerm(expression: t.eventId, mode: OrderingMode.desc)]);
+    q = q..limit(limit);
     return q.get();
   }
 

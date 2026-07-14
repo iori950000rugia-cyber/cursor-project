@@ -25,8 +25,12 @@ class DriftGrowthEventRepository implements GrowthEventRepository {
       );
 
   @override
-  Future<List<GrowthEvent>> getByUser(String userId, {int? limit}) async {
-    final rows = await _db.growthDao.eventsGetByUser(userId, limit: limit);
+  Future<List<GrowthEvent>> getByUser(String userId, {int limit = 50, GrowthEventCursor? cursor}) async {
+    final rows = await _db.growthDao.eventsGetByUser(
+      userId, limit: limit,
+      beforeObservedAt: cursor?.observedAt,
+      beforeEventId: cursor?.eventId,
+    );
     return rows.map(_toDomain).toList();
   }
 
