@@ -24,7 +24,6 @@ import '../data/repositories/drift_growth_goal_repository.dart';
 import '../data/repositories/drift_material_inventory_repository.dart';
 import '../data/repositories/drift_team_repository.dart';
 import '../data/repositories/drift_growth_event_repository.dart';
-import '../domain/daily_materials/daily_material_models.dart';
 import 'app_providers.dart';
 import 'hoyolab_providers.dart' show featureFlagsProvider;
 import 'hoyolab_snapshot_providers.dart' show buildSnapshotSupplement;
