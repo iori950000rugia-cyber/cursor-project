@@ -257,7 +257,7 @@ void main() {
       final snapshot = _testSnapshot();
       final report = const GenerateAccountHealthReportUseCase()(snapshot: snapshot);
       expect(report.categories, isNotEmpty);
-      expect(report.totalScore, -1); // no chars = nothing evaluable
+      expect(report.totalScore, isNull); // no chars = nothing evaluable
       expect(report.isEvaluable, isFalse);
     });
 

@@ -32,7 +32,7 @@ class AccountHealthCategory {
 /// Account health report generated from an [AccountSnapshot].
 class AccountHealthReport {
   const AccountHealthReport({
-    this.totalScore = -1,
+    this.totalScore,
     this.rating = HealthRating.unknown,
     this.categories = const [],
     this.strengths = const [],
@@ -45,8 +45,8 @@ class AccountHealthReport {
     this.ruleVersion = '1',
   });
 
-  /// Overall health score (-1 = unevaluable). Only includes evaluated categories.
-  final double totalScore;
+  /// Overall health score (null = unevaluable). Only includes evaluated categories.
+  final double? totalScore;
   final HealthRating rating;
   final List<AccountHealthCategory> categories;
   final List<String> strengths;
@@ -61,7 +61,7 @@ class AccountHealthReport {
   final DateTime? generatedAt;
   final String ruleVersion;
 
-  bool get isEvaluable => totalScore >= 0;
+  bool get isEvaluable => totalScore != null;
   int get evaluatedCategoryCount => categories.where((c) => c.evaluated).length;
 
   static HealthRating scoreToRating(double score) {

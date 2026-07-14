@@ -129,7 +129,7 @@ class GenerateAccountHealthReportUseCase {
         totalWeight += cat.weight;
       }
     }
-    final totalScore = totalWeight > 0 ? (weightedSum / totalWeight).clamp(0.0, 100.0) : -1.0;
+    final effectiveScore = totalWeight > 0 ? (weightedSum / totalWeight).clamp(0.0, 100.0) : null;
 
     // Strengths & improvements from evaluated categories only
     final strengths = categories.where((c) => c.evaluated && c.normalizedScore >= 70).map((c) => c.name).toList();
@@ -142,8 +142,8 @@ class GenerateAccountHealthReportUseCase {
         : 'Unavailable';
 
     return AccountHealthReport(
-      totalScore: totalScore,
-      rating: totalScore >= 0 ? AccountHealthReport.scoreToRating(totalScore) : HealthRating.unknown,
+      totalScore: effectiveScore,
+      rating: effectiveScore != null ? AccountHealthReport.scoreToRating(effectiveScore) : HealthRating.unknown,
       categories: categories,
       strengths: strengths,
       improvementCandidates: improvements,

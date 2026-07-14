@@ -1,4 +1,5 @@
 import '../../domain/account/account_snapshot.dart';
+import '../../domain/account/snapshot_supplement.dart';
 import '../../domain/planning/growth_goal.dart';
 import '../../domain/repositories/character_repository.dart';
 import '../../domain/repositories/growth_goal_repository.dart';
@@ -6,7 +7,7 @@ import '../../domain/repositories/material_inventory_repository.dart';
 import '../../domain/repositories/progress_repository.dart';
 import '../../domain/repositories/team_repository.dart';
 
-/// Builds an [AccountSnapshot] from multiple repositories.
+/// Builds an [AccountSnapshot] from multiple repositories and optional HoYoLAB supplement.
 class BuildAccountSnapshotUseCase {
   BuildAccountSnapshotUseCase({
     required this.characterRepo,
@@ -15,6 +16,7 @@ class BuildAccountSnapshotUseCase {
     required this.inventoryRepo,
     required this.teamRepo,
     required this.userId,
+    this.supplement,
   });
 
   final CharacterRepository characterRepo;
@@ -23,6 +25,7 @@ class BuildAccountSnapshotUseCase {
   final MaterialInventoryRepository inventoryRepo;
   final TeamRepository teamRepo;
   final String userId;
+  final AccountSnapshotSupplement? supplement;
 
   Future<AccountSnapshot> call() async {
     final characters = await characterRepo.getAll();
@@ -31,9 +34,32 @@ class BuildAccountSnapshotUseCase {
     final inventory = await inventoryRepo.getInventory(userId);
     final teams = await teamRepo.getAll(userId);
     final progressMap = {for (final p in progressList) p.characterId: p};
+    final sources = <String>['characterRepository', 'progressRepository', 'growthGoalRepository',
+                          'materialInventoryRepository', 'teamRepository'];
+    bool hasHoyolab = false;
+
+    if (supplement != null && supplement!.status == SnapshotSupplementStatus.linked) {
+      hasHoyolab = true;
+      sources.add('hoyolabCache');
+    }
 
     final snapshots = characters.map((mc) {
       final progress = progressMap[mc.id];
+      final hoyoChar = supplement?.characters[mc.id];
+      // Merge: HoYoLAB values override local if non-null
+      final level = hoyoChar?.level ?? progress?.level ?? 1;
+      final ascension = hoyoChar?.ascension ?? progress?.ascension ?? 0;
+      final constellation = hoyoChar?.constellation ?? progress?.constellation ?? 0;
+      final talentNormal = hoyoChar?.talentNormal ?? progress?.talentNormal ?? 1;
+      final talentSkill = hoyoChar?.talentSkill ?? progress?.talentSkill ?? 1;
+      final talentBurst = hoyoChar?.talentBurst ?? progress?.talentBurst ?? 1;
+      final weaponId = hoyoChar?.weaponId ?? progress?.weaponId;
+      final weaponName = hoyoChar?.weaponName ?? progress?.weaponName;
+      final weaponLevel = hoyoChar?.weaponLevel ?? progress?.weaponLevel ?? 1;
+      final weaponRefinement = hoyoChar?.weaponRefinement ?? progress?.weaponRefinement ?? 1;
+      final artifactCompletionVal = hoyoChar?.artifactCompletion ?? _calcArtifactCompletion(progress);
+      final isOwned = progress != null || hoyoChar != null;
+
       return CharacterSnapshot(
         characterId: mc.id,
         name: mc.name,
@@ -41,19 +67,19 @@ class BuildAccountSnapshotUseCase {
         weaponType: mc.weaponType,
         rarity: mc.rarity,
         region: mc.region,
-        isOwned: progress != null,
-        level: progress?.level ?? 1,
-        ascension: progress?.ascension ?? 0,
-        constellation: progress?.constellation ?? 0,
-        talentNormal: progress?.talentNormal ?? 1,
-        talentSkill: progress?.talentSkill ?? 1,
-        talentBurst: progress?.talentBurst ?? 1,
-        equippedWeaponId: progress?.weaponId,
-        equippedWeaponName: progress?.weaponName,
-        weaponLevel: progress?.weaponLevel ?? 1,
-        weaponRefinement: progress?.weaponRefinement ?? 1,
-        artifactCompletion: _calcArtifactCompletion(progress),
-        artifactCompletionAvailable: progress?.artifactCompleted != null,
+        isOwned: isOwned,
+        level: level,
+        ascension: ascension,
+        constellation: constellation,
+        talentNormal: talentNormal,
+        talentSkill: talentSkill,
+        talentBurst: talentBurst,
+        equippedWeaponId: weaponId != null && weaponId.isNotEmpty ? weaponId : null,
+        equippedWeaponName: weaponName != null && weaponName.isNotEmpty ? weaponName : null,
+        weaponLevel: weaponLevel,
+        weaponRefinement: weaponRefinement,
+        artifactCompletion: artifactCompletionVal,
+        artifactCompletionAvailable: hoyoChar?.artifactCompletion != null || progress?.artifactCompleted != null,
         memo: progress?.memo,
       );
     }).toList();
@@ -64,16 +90,15 @@ class BuildAccountSnapshotUseCase {
       materialInventory: inventory,
       savedTeams: teams,
       activeGoals: goals.where((g) => g.status == GrowthGoalStatus.active).toList(),
+      currentResin: supplement?.currentResin,
+      maxResin: supplement?.maxResin,
       weekday: DateTime.now().weekday,
       acquiredAt: DateTime.now(),
-      sources: ['characterRepository', 'progressRepository', 'growthGoalRepository',
-                'materialInventoryRepository', 'teamRepository'],
+      sources: sources,
     );
   }
 
   double _calcArtifactCompletion(dynamic progress) {
-    // Reuse existing artifact completion if available.
-    // Returns 0.0 for now — proper calc uses artifact_state module.
     return progress?.artifactCompleted == true ? 1.0 : 0.0;
   }
 }

@@ -18,6 +18,17 @@ enum GrowthEventType {
   accountHealthScoreChanged,
 }
 
+/// Cursor for paginating growth events.
+class GrowthEventCursor {
+  const GrowthEventCursor({
+    required this.observedAt,
+    required this.eventId,
+  });
+
+  final DateTime observedAt;
+  final String eventId;
+}
+
 class GrowthEvent {
   const GrowthEvent({
     required this.eventId,
