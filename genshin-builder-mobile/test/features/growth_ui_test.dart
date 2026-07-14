@@ -61,6 +61,7 @@ void main() {
 
     testWidgets('growth-route 想定外型のextraでもクラッシュしない', (tester) async {
       final router = GoRouter(
+        initialLocation: '/growth-route',
         routes: [
           GoRoute(
             path: '/growth-route',
@@ -80,7 +81,7 @@ void main() {
       );
       // Navigate with unexpected extra type (int).
       router.go('/growth-route', extra: 42);
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(find.text('育成目標が設定されていません'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
@@ -107,11 +108,12 @@ void main() {
       );
       addTearDown(() => router.dispose());
 
+      router.go('/growth-route', extra: request);
+
       await tester.pumpWidget(
         ProviderScope(child: MaterialApp.router(routerConfig: router)),
       );
 
-      router.go('/growth-route', extra: request);
       await tester.pump();
       expect(find.byType(Scaffold), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -141,6 +143,7 @@ void main() {
 
     testWidgets('team-priority 想定外型のextraでもクラッシュしない', (tester) async {
       final router = GoRouter(
+        initialLocation: '/team-priority',
         routes: [
           GoRoute(
             path: '/team-priority',
@@ -157,7 +160,7 @@ void main() {
         ProviderScope(child: MaterialApp.router(routerConfig: router)),
       );
       router.go('/team-priority', extra: 42);
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(find.text('編成が選択されていません'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
@@ -178,11 +181,12 @@ void main() {
       );
       addTearDown(() => router.dispose());
 
+      router.go('/team-priority', extra: teamId);
+
       await tester.pumpWidget(
         ProviderScope(child: MaterialApp.router(routerConfig: router)),
       );
 
-      router.go('/team-priority', extra: teamId);
       await tester.pump();
       expect(find.byType(Scaffold), findsOneWidget);
       expect(tester.takeException(), isNull);

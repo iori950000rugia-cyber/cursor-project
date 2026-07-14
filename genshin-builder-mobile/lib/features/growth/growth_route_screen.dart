@@ -1,28 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../domain/planning/growth_route.dart';
 import '../../../domain/planning/growth_route_request.dart';
 import '../../../providers/growth_providers.dart';
 
 /// Displays a multi-day growth route.
-/// Receives [GrowthRouteRequest] via GoRouterState.extra.
-/// Falls back to empty route if extra is missing or invalid.
+/// [request] is optional — when null, shows empty guidance.
 class GrowthRouteScreen extends ConsumerWidget {
-  const GrowthRouteScreen({super.key});
+  const GrowthRouteScreen({super.key, this.request});
 
-  GrowthRouteRequest? _resolveRequest(BuildContext context) {
-    final state = GoRouterState.of(context);
-    final extra = state.extra;
-    if (extra is GrowthRouteRequest) return extra;
-    return null;
-  }
+  final GrowthRouteRequest? request;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final req = _resolveRequest(context);
-    final routeAsync = req != null ? ref.watch(growthRouteProvider(req)) : null;
+    final routeAsync =
+        request != null ? ref.watch(growthRouteProvider(request!)) : null;
     final theme = Theme.of(context);
 
     return Scaffold(
