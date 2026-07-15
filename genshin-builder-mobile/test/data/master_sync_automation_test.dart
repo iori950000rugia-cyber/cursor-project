@@ -10,29 +10,33 @@ void main() {
   group('countSyncableCharactersFromAmberItems', () {
     test('matches parse filter (skips female traveler)', () {
       final items = {
-        'a': {
-          'id': 10000042,
-          'name': '刻晴',
-          'element': 'Electric',
-        },
+        'a': {'id': 10000042, 'name': '刻晴', 'element': 'Electric', 'rank': 5},
         'skip': {
           'id': '10000007-anemo',
           'name': '旅人',
           'element': 'Wind',
+          'rank': 5,
         },
         't': {
           'id': '10000005-anemo',
           'name': '旅人',
           'element': 'Wind',
-        },
-        'bad': {
-          'id': 1,
-          'name': 'x',
-          // no element
+          'rank': 5,
         },
       };
       expect(countSyncableCharactersFromAmberItems(items), 2);
       expect(parseCharactersFromAmberItems(items).length, 2);
+    });
+
+    test('rejects invalid records instead of silently skipping them', () {
+      final items = {
+        'bad': {'id': 1, 'name': 'x'},
+      };
+      expect(
+        () => countSyncableCharactersFromAmberItems(items),
+        throwsFormatException,
+      );
+      expect(() => parseCharactersFromAmberItems(items), throwsFormatException);
     });
   });
 
@@ -73,19 +77,21 @@ void main() {
       );
     });
 
-    test('requiresBlockingBootstrap is narrower than shouldAutoSyncOnLaunch',
-        () {
-      const missingUpgrades = SyncStatus(
-        characters: 10,
-        weapons: 5,
-        materials: 100,
-        characterUpgrades: 8,
-        weaponUpgrades: 5,
-        levelExpSegments: 32,
-      );
-      expect(missingUpgrades.shouldAutoSyncOnLaunch, isTrue);
-      expect(missingUpgrades.requiresBlockingBootstrap, isFalse);
-    });
+    test(
+      'requiresBlockingBootstrap is narrower than shouldAutoSyncOnLaunch',
+      () {
+        const missingUpgrades = SyncStatus(
+          characters: 10,
+          weapons: 5,
+          materials: 100,
+          characterUpgrades: 8,
+          weaponUpgrades: 5,
+          levelExpSegments: 32,
+        );
+        expect(missingUpgrades.shouldAutoSyncOnLaunch, isTrue);
+        expect(missingUpgrades.requiresBlockingBootstrap, isFalse);
+      },
+    );
   });
 
   group('MasterContentProbeResult', () {
@@ -102,25 +108,22 @@ void main() {
   group('CompositeDailyMaterialScheduleSource', () {
     test('prefers remote when version is higher', () async {
       final local = _FakeScheduleSource(
-        DailyMaterialSchedule(
+        const DailyMaterialSchedule(
           version: 1,
-          talentSeries: const [],
-          weaponSeries: const [],
+          talentSeries: [],
+          weaponSeries: [],
         ),
       );
       final remote = _FakeScheduleSource(
         DailyMaterialSchedule(
           version: 2,
           talentSeries: [
-            DailyMaterialSeries.fromJson(
-              {
-                'id': 'freedom',
-                'name': '自由',
-                'materialIds': ['104301'],
-                'weekdays': [1, 4],
-              },
-              DailyMaterialKind.talentBook,
-            ),
+            DailyMaterialSeries.fromJson({
+              'id': 'freedom',
+              'name': '自由',
+              'materialIds': ['104301'],
+              'weekdays': [1, 4],
+            }, DailyMaterialKind.talentBook),
           ],
           weaponSeries: const [],
         ),

@@ -3,11 +3,9 @@ import '../db/app_database.dart';
 
 /// Amber 一覧とローカル DB を比較し、新コンテンツ同期が必要か判定する。
 class MasterContentProbe {
-  MasterContentProbe({
-    required AmberApi amberApi,
-    required AppDatabase db,
-  })  : _amber = amberApi,
-        _db = db;
+  MasterContentProbe({required AmberApi amberApi, required AppDatabase db})
+    : _amber = amberApi,
+      _db = db;
 
   final AmberApi _amber;
   final AppDatabase _db;
@@ -83,6 +81,5 @@ class MasterContentProbeResult {
   final int localMaterials;
   final String? error;
 
-  String get reasonSummary =>
-      reasons.isEmpty ? '' : reasons.join(' · ');
+  String get reasonSummary => reasons.isEmpty ? '' : reasons.join(' · ');
 }

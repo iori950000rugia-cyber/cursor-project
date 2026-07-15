@@ -117,7 +117,7 @@ Future<Map<String, dynamic>> fetchRemoteJsonMap({
 
   final contentTypePresent =
       streamed.headers.containsKey('content-type') ||
-          streamed.headers.containsKey('Content-Type');
+      streamed.headers.containsKey('Content-Type');
 
   if (streamed.statusCode != 200) {
     // Drain without retaining body for logs.
