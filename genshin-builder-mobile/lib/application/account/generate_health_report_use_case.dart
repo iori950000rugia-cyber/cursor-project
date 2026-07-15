@@ -112,11 +112,11 @@ class GenerateAccountHealthReportUseCase {
       evaluated: artifactAvailable,
       evidenceCount: artifactChars,
       reasons: artifactAvailable
-          ? ['$artifactChars 体の聖遺物完成度が高いです']
+          ? ['$artifactChars 体の聖遺物完成度（キャラ詳細と同じ指標）が 80% 以上です']
           : ['聖遺物データがありません'],
       missingData: !artifactAvailable ? [MissingData.materialInventory] : [],
       improvementHints: !artifactAvailable
-          ? ['キャラ詳細で聖遺物完成度を設定すると進捗を追えます']
+          ? ['キャラ詳細の聖遺物項目で装備を登録すると完成度を評価できます']
           : [],
     ));
 

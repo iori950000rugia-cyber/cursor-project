@@ -102,14 +102,14 @@ class DiagnoseCharacterInvestmentUseCase {
       ));
     }
 
-    if (char.artifactCompletion == 0.0 && char.isOwned) {
+    if (char.isOwned && !char.artifactCompletionAvailable) {
       findings.add(DiagnosisFinding(
         type: DiagnosisType.artifactCompletionUnset,
         severity: DiagnosisSeverity.info,
-        title: '聖遺物の完成度が未設定です',
-        explanation: '聖遺物の進捗を追うには完成度を設定してください。',
+        title: '聖遺物データがありません',
+        explanation: 'キャラ詳細の聖遺物完成度を参照するには、装備データを登録してください。',
         characterId: characterId,
-        recommendation: 'キャラ詳細で聖遺物の完成度を設定しましょう。',
+        recommendation: 'キャラ詳細の聖遺物項目で装備を登録しましょう。',
         confidence: RecommendationConfidence.medium,
       ));
     }

@@ -206,6 +206,34 @@ void main() {
       expect(report.memberPriorities.length, 4);
       // Lower level = higher priority (since more issues)
       expect(report.memberPriorities.first.characterId, 'id0');
+      expect(report.memberPriorities.first.displayName, 'Testid0');
+    });
+
+    test('member displayName uses snapshot character name', () {
+      final chars = [
+        CharacterSnapshot(
+          characterId: '10000052',
+          name: '雷電将軍',
+          element: 'electro',
+          weaponType: 'polearm',
+          rarity: 5,
+          region: 'Inazuma',
+          isOwned: true,
+          level: 70,
+        ),
+      ];
+      final snapshot = _testSnapshot(chars);
+      final team = Team(
+        id: 't1',
+        name: 'Test',
+        members: const [TeamMemberSlot(characterId: '10000052', position: 0)],
+      );
+      final report = const GenerateTeamGrowthPriorityUseCase()(
+        team: team,
+        snapshot: snapshot,
+        upgradeOptionsByCharacter: {},
+      );
+      expect(report.memberPriorities.single.displayName, '雷電将軍');
     });
 
     test('characters with upgrade options get higher priority', () {
