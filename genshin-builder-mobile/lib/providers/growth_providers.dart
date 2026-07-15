@@ -12,9 +12,14 @@ import '../application/planning/generate_team_growth_priority_use_case.dart';
 import '../domain/account/account_snapshot.dart';
 import '../domain/account/account_health_report.dart';
 import '../domain/account/snapshot_supplement.dart';
+import '../domain/daily_materials/daily_material_models.dart';
 import '../domain/history/growth_event.dart';
+import '../data/config/ley_line_overflow_repository.dart';
+import '../domain/planning/character_farm_plan.dart';
 import '../domain/planning/daily_plan.dart';
 import '../domain/planning/investment_diagnosis.dart';
+import '../domain/planning/ley_line_overflow.dart';
+import '../domain/planning/resin_farm_cost_table.dart';
 import '../domain/planning/upgrade_option.dart';
 import '../domain/planning/growth_route.dart';
 import '../domain/planning/growth_route_request.dart';
@@ -26,8 +31,30 @@ import '../data/repositories/drift_team_repository.dart';
 import '../data/repositories/drift_growth_event_repository.dart';
 import '../data/repositories/progress_mutation_repository.dart';
 import 'app_providers.dart';
+import 'gacha_providers.dart' show gachaCalendarApiProvider;
 import 'hoyolab_providers.dart' show featureFlagsProvider;
 import 'hoyolab_snapshot_providers.dart' show buildSnapshotSupplement;
+
+/// UTC 現在時刻（テストで差し替え可能）。
+final clockProvider = Provider<Clock>((ref) {
+  return () => DateTime.now().toUtc();
+});
+
+final leyLineOverflowRepositoryProvider =
+    Provider<LeyLineOverflowRepository>((ref) {
+  return LeyLineOverflowRepository(
+    catalogSource: ref.watch(leyLineOverflowCatalogSourceProvider),
+    calendarApi: ref.watch(gachaCalendarApiProvider),
+    clock: ref.watch(clockProvider),
+  );
+});
+
+/// 地脈の奔流の開催状態（取得失敗時は非開催）。
+final leyLineOverflowStatusProvider =
+    FutureProvider<LeyLineOverflowStatus>((ref) async {
+  final repo = ref.watch(leyLineOverflowRepositoryProvider);
+  return repo.resolveStatus();
+});
 
 final growthGoalRepoProvider = FutureProvider((ref) async {
   final db = await ref.watch(appDatabaseProvider.future);
@@ -170,7 +197,29 @@ final upgradeOptionsProvider =
   final weaponUpgrade = weaponId == null
       ? null
       : await characterRepo.getWeaponUpgrade(weaponId);
-  return const GenerateUpgradeOptionsUseCase()(
+
+  ResinFarmCostTable? resinTable;
+  Map<String, DailyMaterialSeries> materialIndex = const {};
+  Map<String, String> materialCategories = const {};
+  try {
+    resinTable =
+        await ref.watch(resinFarmCostRepositoryProvider).getTable();
+    final schedule =
+        await ref.watch(dailyMaterialScheduleRepositoryProvider).getSchedule();
+    materialIndex = schedule.buildMaterialIndex();
+    final materials = await characterRepo.getMaterialsMap();
+    materialCategories = {
+      for (final e in materials.entries) e.key: e.value.category,
+    };
+  } catch (_) {
+    // 樹脂見積もり失敗時はコストなしで続行
+  }
+
+  return GenerateUpgradeOptionsUseCase(
+    resinFarmCostTable: resinTable,
+    materialIndex: materialIndex,
+    materialCategories: materialCategories,
+  )(
     goal: goal, character: char,
     materialInventory: snapshot.materialInventory,
     promotes: characterUpgrade?.promotes,
@@ -224,8 +273,77 @@ final growthRouteProvider =
     userId: snapshot.userId, options: options,
     startDate: req.startDate, startWeekday: req.startWeekday,
     dailyResinBudget: req.dailyResinBudget,
+    enforceDailyResinBudget: false,
     weekdayMap: weekdayMap,
   );
+});
+
+/// 育成ルート目標に対応するキャラ別ファーミング計画（樹脂詳細）。
+final characterFarmPlansProvider =
+    FutureProvider.family<List<CharacterFarmPlan>, GrowthRouteRequest>(
+        (ref, req) async {
+  final options = <UpgradeOption>[];
+  for (final gid in req.goalIds) {
+    final goalOpts = await ref.watch(upgradeOptionsProvider(gid).future);
+    options.addAll(goalOpts);
+  }
+  if (options.isEmpty) return const [];
+
+  final resinTable =
+      await ref.watch(resinFarmCostRepositoryProvider).getTable();
+  final schedule =
+      await ref.watch(dailyMaterialScheduleRepositoryProvider).getSchedule();
+  final materialIndex = schedule.buildMaterialIndex();
+  final characterRepo = await ref.watch(characterRepositoryProvider.future);
+  final materials = await characterRepo.getMaterialsMap();
+  final materialCategories = {
+    for (final e in materials.entries) e.key: e.value.category,
+  };
+  final materialNames = {
+    for (final e in materials.entries) e.key: e.value.name,
+  };
+  // 取得中は非開催扱いで通常計算（誤って開催中にしない）。
+  final overflowStatus = ref.watch(leyLineOverflowStatusProvider).valueOrNull ??
+      LeyLineOverflowStatus.inactive;
+  final nowUtc = ref.watch(clockProvider)();
+
+  final byChar = <String, List<UpgradeOption>>{};
+  for (final opt in options) {
+    byChar.putIfAbsent(opt.characterId, () => []).add(opt);
+  }
+
+  final plans = <CharacterFarmPlan>[
+    for (final e in byChar.entries)
+      buildCharacterFarmPlan(
+        characterId: e.key,
+        options: e.value,
+        table: resinTable,
+        materialIndex: materialIndex,
+        materialCategories: materialCategories,
+        materialNames: materialNames,
+        leyLineOverflowStatus: overflowStatus,
+        nowUtc: nowUtc,
+      ),
+  ];
+  plans.sort((a, b) {
+    final byResin = b.totalResin.compareTo(a.totalResin);
+    if (byResin != 0) return byResin;
+    return a.characterId.compareTo(b.characterId);
+  });
+  // Attach aggregate as last item with sentinel id when multiple characters.
+  if (plans.length > 1) {
+    final aggregate = mergeCharacterFarmPlans(
+      allOptions: options,
+      table: resinTable,
+      materialIndex: materialIndex,
+      materialCategories: materialCategories,
+      materialNames: materialNames,
+      leyLineOverflowStatus: overflowStatus,
+      nowUtc: nowUtc,
+    );
+    return [...plans, aggregate];
+  }
+  return plans;
 });
 
 final teamGrowthPriorityProvider =
