@@ -122,6 +122,7 @@ void main() {
       final route = const OptimizeGrowthRouteUseCase()(
         userId: 'local', options: options, startDate: _testDate, startWeekday: 1,
         dailyResinBudget: 200,
+        enforceDailyResinBudget: true,
       );
       // One action per day with budget=200 and cost=200 each
       final firstDayCount = route.days.isNotEmpty ? route.days.first.actions.length : 0;
