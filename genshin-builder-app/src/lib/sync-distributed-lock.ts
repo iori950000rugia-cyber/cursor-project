@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 
 export const MASTER_SYNC_LOCK_KEY = "master-sync";
-export const DEFAULT_SYNC_LEASE_MS = 5 * 60 * 1000;
+export const DEFAULT_SYNC_LEASE_MS = 360_000;
 
 export class SyncLeaseUnavailableError extends Error {
   constructor() {

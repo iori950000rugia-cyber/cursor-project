@@ -315,8 +315,6 @@ class HoyolabApi {
           lastError = e;
         } on HoyolabHttpException {
           continue;
-        } on HoyolabHttpException {
-          continue;
         }
       }
 
