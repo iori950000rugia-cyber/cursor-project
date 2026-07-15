@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../application/account/build_account_snapshot_use_case.dart';
 import '../application/account/generate_health_report_use_case.dart';
+import '../application/hoyolab/sync_hoyolab_relics_to_progress_use_case.dart';
 import '../application/planning/generate_daily_plan_use_case.dart';
 import '../application/planning/diagnose_investment_use_case.dart';
 import '../application/planning/generate_upgrade_options_use_case.dart';
@@ -32,7 +33,9 @@ import '../data/repositories/drift_growth_event_repository.dart';
 import '../data/repositories/progress_mutation_repository.dart';
 import 'app_providers.dart';
 import 'gacha_providers.dart' show gachaCalendarApiProvider;
-import 'hoyolab_providers.dart' show featureFlagsProvider;
+import 'hoyolab_game_providers.dart' show hoyolabGameDataRepositoryProvider;
+import 'hoyolab_providers.dart'
+    show featureFlagsProvider, hoyolabSessionProvider;
 import 'hoyolab_snapshot_providers.dart' show buildSnapshotSupplement;
 
 /// UTC 現在時刻（テストで差し替え可能）。
@@ -82,9 +85,33 @@ final progressMutationRepoProvider = FutureProvider((ref) async {
 Future<AccountSnapshotSupplement> _buildSupplement(Ref ref) async =>
     buildSnapshotSupplement(ref);
 
+/// Batch-fetch owned builds and persist relics into local progress.
+/// Failures are swallowed so snapshot/health still load without relics.
+Future<void> _ensureHoyolabRelicsPersisted(Ref ref) async {
+  final flags = await ref.watch(featureFlagsProvider.future);
+  if (!flags.hoyolabLinkEnabled) return;
+  final session = await ref.watch(hoyolabSessionProvider.future);
+  if (!session.isLinked) return;
+
+  try {
+    final hoyolab = await ref.watch(hoyolabGameDataRepositoryProvider.future);
+    final progressRepo = await ref.watch(progressRepositoryProvider.future);
+    final userId = await ref.watch(localUserIdProvider.future);
+    final builds = await hoyolab.fetchOwnedCharacterBuilds();
+    if (builds.isEmpty) return;
+    await SyncHoyolabRelicsToProgressUseCase(
+      progressRepository: progressRepo,
+    )(userId: userId, builds: builds.values);
+  } catch (_) {
+    // Network / session errors: keep previous local artifacts.
+  }
+}
+
 // ── AccountSnapshot ───────────────────────────────────────────────
 
 final accountSnapshotProvider = FutureProvider<AccountSnapshot>((ref) async {
+  await _ensureHoyolabRelicsPersisted(ref);
+
   final charRepo = await ref.watch(characterRepositoryProvider.future);
   final progressRepo = await ref.watch(progressRepositoryProvider.future);
   final goalRepo = await ref.watch(growthGoalRepoProvider.future);
