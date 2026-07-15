@@ -373,14 +373,37 @@ class _GrowthGoalButton extends ConsumerStatefulWidget {
 class _GrowthGoalButtonState extends ConsumerState<_GrowthGoalButton> {
   bool _saving = false;
 
-  Future<void> _save() async {
-    if (_saving) return;
-    final detail = widget.detail;
+  ({int? targetLevel, String? weaponId, int? weaponLevel}) _targetsFrom(
+    CharacterDetailState detail,
+  ) {
     final targetLevel =
         detail.targetLevel > detail.level ? detail.targetLevel : null;
     final hasWeaponTarget = detail.weaponId.isNotEmpty &&
         detail.targetWeaponLevel > detail.weaponLevel;
-    if (targetLevel == null && !hasWeaponTarget) return;
+    return (
+      targetLevel: targetLevel,
+      weaponId: hasWeaponTarget ? detail.weaponId : null,
+      weaponLevel: hasWeaponTarget ? detail.targetWeaponLevel : null,
+    );
+  }
+
+  bool _alreadySavedForCurrentTargets({
+    required GrowthGoal? existing,
+    required CharacterDetailState detail,
+  }) {
+    if (existing == null) return false;
+    final t = _targetsFrom(detail);
+    if (t.targetLevel == null && t.weaponId == null) return false;
+    return existing.targetLevel == t.targetLevel &&
+        existing.targetWeaponId == t.weaponId &&
+        existing.targetWeaponLevel == t.weaponLevel;
+  }
+
+  Future<void> _save() async {
+    if (_saving) return;
+    final detail = widget.detail;
+    final targets = _targetsFrom(detail);
+    if (targets.targetLevel == null && targets.weaponId == null) return;
 
     setState(() => _saving = true);
     try {
@@ -389,16 +412,19 @@ class _GrowthGoalButtonState extends ConsumerState<_GrowthGoalButton> {
       final existing = snapshot.activeGoals
           .where((goal) => goal.characterId == widget.characterId)
           .firstOrNull;
+      if (_alreadySavedForCurrentTargets(existing: existing, detail: detail)) {
+        return;
+      }
       final now = DateTime.now();
       final goal = GrowthGoal(
         id: existing?.id ?? const Uuid().v4(),
         userId: userId,
         characterId: widget.characterId,
-        targetLevel: targetLevel,
-        targetWeaponId: hasWeaponTarget ? detail.weaponId : null,
-        targetWeaponLevel:
-            hasWeaponTarget ? detail.targetWeaponLevel : null,
-        priority: existing?.priority ?? 0,
+        targetLevel: targets.targetLevel,
+        targetWeaponId: targets.weaponId,
+        targetWeaponLevel: targets.weaponLevel,
+        // 新規は優先枠へ入れ、今日やることにすぐ載るようにする
+        priority: existing?.priority ?? 1,
         status: GrowthGoalStatus.active,
         memo: existing?.memo,
         createdAt: existing?.createdAt ?? now,
@@ -406,7 +432,9 @@ class _GrowthGoalButtonState extends ConsumerState<_GrowthGoalButton> {
       );
       final repository = await ref.read(growthGoalRepoProvider.future);
       await repository.save(goal);
+      // スナップショット再読込を待ってから Daily Plan を更新（古いキャッシュ回避）
       ref.invalidate(accountSnapshotProvider);
+      await ref.read(accountSnapshotProvider.future);
       ref.invalidate(dailyPlanProvider);
       ref.invalidate(characterDiagnosisProvider(widget.characterId));
       ref.invalidate(accountHealthReportProvider);
@@ -431,15 +459,31 @@ class _GrowthGoalButtonState extends ConsumerState<_GrowthGoalButton> {
     if (!enabledByFlag) return const SizedBox.shrink();
 
     final detail = widget.detail;
-    final enabled = detail.targetLevel > detail.level ||
+    final hasTargets = detail.targetLevel > detail.level ||
         (detail.weaponId.isNotEmpty &&
             detail.targetWeaponLevel > detail.weaponLevel);
+    final snapshotAsync = ref.watch(accountSnapshotProvider);
+    final existing = snapshotAsync.valueOrNull?.activeGoals
+        .where((goal) => goal.characterId == widget.characterId)
+        .firstOrNull;
+    final alreadySaved = _alreadySavedForCurrentTargets(
+      existing: existing,
+      detail: detail,
+    );
+    final canPress = hasTargets && !_saving && !alreadySaved;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: OutlinedButton.icon(
-        onPressed: enabled && !_saving ? _save : null,
-        icon: const Icon(Icons.flag_outlined),
-        label: Text(_saving ? '保存中...' : '現在の目標レベルを育成目標に保存'),
+        onPressed: canPress ? _save : null,
+        icon: Icon(alreadySaved ? Icons.check : Icons.flag_outlined),
+        label: Text(
+          _saving
+              ? '保存中...'
+              : alreadySaved
+                  ? '育成目標に保存済み'
+                  : '現在の目標レベルを育成目標に保存',
+        ),
       ),
     );
   }
