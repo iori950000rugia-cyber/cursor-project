@@ -29,17 +29,11 @@ void main() {
     test('requiresBlockingBootstrap only when characters == 0', () {
       expect(_status(characters: 0).requiresBlockingBootstrap, isTrue);
       expect(
-        _status(
-          characters: 10,
-          characterUpgrades: 0,
-        ).requiresBlockingBootstrap,
+        _status(characters: 10, characterUpgrades: 0).requiresBlockingBootstrap,
         isFalse,
       );
       expect(
-        _status(
-          characters: 10,
-          characterUpgrades: 8,
-        ).requiresBlockingBootstrap,
+        _status(characters: 10, characterUpgrades: 8).requiresBlockingBootstrap,
         isFalse,
       );
       expect(
@@ -65,18 +59,9 @@ void main() {
     });
 
     test('needsBackgroundRepair covers weapons/materials zero', () {
-      expect(
-        _status(weapons: 0).needsBackgroundRepair,
-        isTrue,
-      );
-      expect(
-        _status(materials: 0).needsBackgroundRepair,
-        isTrue,
-      );
-      expect(
-        _status(levelExpSegments: 0).needsBackgroundRepair,
-        isTrue,
-      );
+      expect(_status(weapons: 0).needsBackgroundRepair, isTrue);
+      expect(_status(materials: 0).needsBackgroundRepair, isTrue);
+      expect(_status(levelExpSegments: 0).needsBackgroundRepair, isTrue);
     });
   });
 
@@ -90,10 +75,7 @@ void main() {
         loadSyncStatus: () async => _status(),
         runProbe: () async {
           probeCount++;
-          return const MasterContentProbeResult(
-            shouldSync: false,
-            reasons: [],
-          );
+          return const MasterContentProbeResult(shouldSync: false, reasons: []);
         },
         runMasterSync: () async {
           syncCount++;
@@ -122,10 +104,9 @@ void main() {
 
       final repair = BackgroundMasterRepair(
         loadSyncStatus: () async => _status(characterUpgrades: 0),
-        runProbe: () async => const MasterContentProbeResult(
-          shouldSync: false,
-          reasons: [],
-        ),
+        runProbe:
+            () async =>
+                const MasterContentProbeResult(shouldSync: false, reasons: []),
         runMasterSync: () async {
           syncCount++;
           await gate.future;
@@ -176,42 +157,74 @@ void main() {
       expect(iconCount, 1);
     });
 
-    test('manual sync during busy returns busy without joining as success',
-        () async {
-      final gate = Completer<void>();
-      var manualRuns = 0;
+    test(
+      'manual sync during busy returns busy without joining as success',
+      () async {
+        final gate = Completer<void>();
+        var manualRuns = 0;
 
+        final repair = BackgroundMasterRepair(
+          loadSyncStatus: () async => _status(characterUpgrades: 0),
+          runProbe:
+              () async => const MasterContentProbeResult(
+                shouldSync: false,
+                reasons: [],
+              ),
+          runMasterSync: () async {
+            await gate.future;
+            return SyncResult(provider: 'test');
+          },
+          preloadIcons: () async => 0,
+          backfillWeights: () async {},
+        );
+
+        final bg = repair.ensureStartedAfterHome();
+        expect(repair.isBusy, isTrue);
+
+        final start = await repair.runManualExclusive(() async {
+          manualRuns++;
+        });
+        expect(start, ManualSyncStart.busy);
+        expect(manualRuns, 0);
+
+        gate.complete();
+        await bg;
+
+        final start2 = await repair.runManualExclusive(() async {
+          manualRuns++;
+        });
+        expect(start2, ManualSyncStart.completed);
+        expect(manualRuns, 1);
+      },
+    );
+
+    test('manual failure always clears the in-flight lock', () async {
       final repair = BackgroundMasterRepair(
-        loadSyncStatus: () async => _status(characterUpgrades: 0),
-        runProbe: () async => const MasterContentProbeResult(
-          shouldSync: false,
-          reasons: [],
-        ),
-        runMasterSync: () async {
-          await gate.future;
-          return SyncResult(provider: 'test');
-        },
+        loadSyncStatus: () async => _status(),
+        runProbe:
+            () async =>
+                const MasterContentProbeResult(shouldSync: false, reasons: []),
+        runMasterSync: () async => SyncResult(provider: 'test'),
         preloadIcons: () async => 0,
         backfillWeights: () async {},
       );
 
-      final bg = repair.ensureStartedAfterHome();
-      expect(repair.isBusy, isTrue);
+      await expectLater(
+        repair.runManualExclusive(() async {
+          throw TimeoutException('forced timeout');
+        }),
+        throwsA(isA<TimeoutException>()),
+      );
+      expect(repair.isBusy, isFalse);
 
-      final start = await repair.runManualExclusive(() async {
-        manualRuns++;
-      });
-      expect(start, ManualSyncStart.busy);
-      expect(manualRuns, 0);
-
-      gate.complete();
-      await bg;
-
-      final start2 = await repair.runManualExclusive(() async {
-        manualRuns++;
-      });
-      expect(start2, ManualSyncStart.completed);
-      expect(manualRuns, 1);
+      var retries = 0;
+      expect(
+        await repair.runManualExclusive(() async {
+          retries++;
+        }),
+        ManualSyncStart.completed,
+      );
+      expect(retries, 1);
     });
 
     test('probe timeout late result does not start master sync', () async {
@@ -235,41 +248,40 @@ void main() {
 
       // 遅延完了（timeout 後）— shouldSync でも採用しない
       lateProbe.complete(
-        const MasterContentProbeResult(
-          shouldSync: true,
-          reasons: ['late'],
-        ),
+        const MasterContentProbeResult(shouldSync: true, reasons: ['late']),
       );
       await Future<void>.delayed(const Duration(milliseconds: 30));
       expect(syncCount, 0);
     });
 
-    test('needsBackgroundRepair triggers sync without waiting probe shouldSync',
-        () async {
-      var syncCount = 0;
-      var probeCount = 0;
+    test(
+      'needsBackgroundRepair triggers sync without waiting probe shouldSync',
+      () async {
+        var syncCount = 0;
+        var probeCount = 0;
 
-      final repair = BackgroundMasterRepair(
-        loadSyncStatus: () async => _status(characterUpgrades: 8),
-        runProbe: () async {
-          probeCount++;
-          return const MasterContentProbeResult(
-            shouldSync: false,
-            reasons: [],
-          );
-        },
-        runMasterSync: () async {
-          syncCount++;
-          return SyncResult(provider: 'test');
-        },
-        preloadIcons: () async => 0,
-        backfillWeights: () async {},
-      );
+        final repair = BackgroundMasterRepair(
+          loadSyncStatus: () async => _status(characterUpgrades: 8),
+          runProbe: () async {
+            probeCount++;
+            return const MasterContentProbeResult(
+              shouldSync: false,
+              reasons: [],
+            );
+          },
+          runMasterSync: () async {
+            syncCount++;
+            return SyncResult(provider: 'test');
+          },
+          preloadIcons: () async => 0,
+          backfillWeights: () async {},
+        );
 
-      await repair.ensureStartedAfterHome();
-      expect(syncCount, 1);
-      // repair が必要なときは probe をスキップして直接 sync
-      expect(probeCount, 0);
-    });
+        await repair.ensureStartedAfterHome();
+        expect(syncCount, 1);
+        // repair が必要なときは probe をスキップして直接 sync
+        expect(probeCount, 0);
+      },
+    );
   });
 }

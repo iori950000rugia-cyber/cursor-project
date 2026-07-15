@@ -5,10 +5,7 @@ import 'master_content_probe.dart';
 import 'master_sync_service.dart';
 
 /// 手動同期の開始結果（BG 実行中は [busy]）
-enum ManualSyncStart {
-  busy,
-  completed,
-}
+enum ManualSyncStart { busy, completed }
 
 /// ホーム表示後のマスタ修復・後段処理（同一プロセスで冪等）
 ///
@@ -145,11 +142,15 @@ class BackgroundMasterRepair {
         _probeRunToken++;
       }
       // pending の完了は無視（then で sync しない）
-      unawaited(pending.catchError((_) => const MasterContentProbeResult(
+      unawaited(
+        pending.catchError(
+          (_) => const MasterContentProbeResult(
             shouldSync: false,
             reasons: [],
             error: 'ignored-after-timeout',
-          )));
+          ),
+        ),
+      );
       return null;
     } catch (_) {
       return null;

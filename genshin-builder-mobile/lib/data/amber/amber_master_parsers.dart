@@ -15,19 +15,30 @@ List<MasterCharacter> parseCharactersFromAmberItems(
 
   final characters = <MasterCharacter>[];
   for (final raw in items.values) {
-    final avatar = raw as Map<String, dynamic>;
+    if (raw is! Map<String, dynamic>) {
+      throw const FormatException('Invalid character record');
+    }
+    final avatar = raw;
     final elementKey = avatar['element'] as String?;
     final element = elementKey != null ? elementMap[elementKey] : null;
     final name = avatar['name'] as String?;
-    if (element == null || name == null || name.isEmpty) continue;
+    final rank = (avatar['rank'] as num?)?.toInt();
+    if (element == null ||
+        name == null ||
+        name.isEmpty ||
+        (rank != 4 && rank != 5)) {
+      throw const FormatException('Invalid character record');
+    }
 
     final id = '${avatar['id']}';
+    if (id.isEmpty || id == 'null') {
+      throw const FormatException('Invalid character id');
+    }
     if (id.startsWith('10000007-')) continue;
 
     final isTraveler = id.startsWith('10000005-');
-    final displayName = isTraveler
-        ? '旅人（${elementLabelMap[element] ?? element}）'
-        : name;
+    final displayName =
+        isTraveler ? '旅人（${elementLabelMap[element] ?? element}）' : name;
 
     characters.add(
       MasterCharacter(
@@ -36,7 +47,7 @@ List<MasterCharacter> parseCharactersFromAmberItems(
         element: element,
         weaponType:
             weaponTypeMap[avatar['weaponType'] as String? ?? ''] ?? 'sword',
-        rarity: (avatar['rank'] as num?)?.toInt() == 4 ? 4 : 5,
+        rarity: rank!,
         region: normalizeCharacterRegionForDisplay(
           regionMap[avatar['region'] as String? ?? ''] ??
               avatar['region'] as String? ??
@@ -62,12 +73,24 @@ List<MasterCharacter> parseCharactersFromAmberItems(
 int countSyncableCharactersFromAmberItems(Map<String, dynamic> items) {
   var count = 0;
   for (final raw in items.values) {
-    final avatar = raw as Map<String, dynamic>;
+    if (raw is! Map<String, dynamic>) {
+      throw const FormatException('Invalid character record');
+    }
+    final avatar = raw;
     final elementKey = avatar['element'] as String?;
     final element = elementKey != null ? elementMap[elementKey] : null;
     final name = avatar['name'] as String?;
-    if (element == null || name == null || name.isEmpty) continue;
+    final rank = (avatar['rank'] as num?)?.toInt();
+    if (element == null ||
+        name == null ||
+        name.isEmpty ||
+        (rank != 4 && rank != 5)) {
+      throw const FormatException('Invalid character record');
+    }
     final id = '${avatar['id']}';
+    if (id.isEmpty || id == 'null') {
+      throw const FormatException('Invalid character id');
+    }
     if (id.startsWith('10000007-')) continue;
     count++;
   }
@@ -77,15 +100,28 @@ int countSyncableCharactersFromAmberItems(Map<String, dynamic> items) {
 List<MasterWeapon> parseWeaponsFromAmberItems(Map<String, dynamic> items) {
   final weapons = <MasterWeapon>[];
   for (final raw in items.values) {
-    final weapon = raw as Map<String, dynamic>;
+    if (raw is! Map<String, dynamic>) {
+      throw const FormatException('Invalid weapon record');
+    }
+    final weapon = raw;
     final name = weapon['name'] as String?;
-    if (name == null || name.isEmpty) continue;
+    final id = '${weapon['id']}';
+    final rank = (weapon['rank'] as num?)?.toInt();
+    if (name == null ||
+        name.isEmpty ||
+        id.isEmpty ||
+        id == 'null' ||
+        rank == null ||
+        rank < 1 ||
+        rank > 5) {
+      throw const FormatException('Invalid weapon record');
+    }
     weapons.add(
       MasterWeapon(
-        id: '${weapon['id']}',
+        id: id,
         name: name,
         weaponType: weaponTypeMap[weapon['type'] as String? ?? ''] ?? 'sword',
-        rarity: (weapon['rank'] as num?)?.toInt() ?? 1,
+        rarity: rank,
         iconUrl: buildIconUrl(weapon['icon'] as String? ?? ''),
       ),
     );
@@ -96,15 +132,24 @@ List<MasterWeapon> parseWeaponsFromAmberItems(Map<String, dynamic> items) {
 List<MasterMaterial> parseMaterialsFromAmberItems(Map<String, dynamic> items) {
   final materials = <MasterMaterial>[];
   for (final entry in items.entries) {
+    if (entry.value is! Map<String, dynamic>) {
+      throw const FormatException('Invalid material record');
+    }
     final material = entry.value as Map<String, dynamic>;
     final name = material['name'] as String?;
-    if (name == null || name.isEmpty) continue;
+    final rank = (material['rank'] as num?)?.toInt();
+    if (entry.key.isEmpty ||
+        name == null ||
+        name.isEmpty ||
+        (rank != null && (rank < 1 || rank > 5))) {
+      throw const FormatException('Invalid material record');
+    }
     materials.add(
       MasterMaterial(
         id: entry.key,
         name: name,
         category: material['type'] as String? ?? '',
-        rarity: (material['rank'] as num?)?.toInt(),
+        rarity: rank,
         iconUrl: buildIconUrl(material['icon'] as String? ?? ''),
       ),
     );
@@ -113,7 +158,9 @@ List<MasterMaterial> parseMaterialsFromAmberItems(Map<String, dynamic> items) {
 }
 
 /// Isolate.run 用ペイロード（characters）
-List<MasterCharacter> parseCharactersIsolatePayload(Map<String, dynamic> payload) {
+List<MasterCharacter> parseCharactersIsolatePayload(
+  Map<String, dynamic> payload,
+) {
   final items = Map<String, dynamic>.from(payload['items'] as Map);
   final overrides = <String, String>{
     for (final e in (payload['nameOverrides'] as Map? ?? const {}).entries)

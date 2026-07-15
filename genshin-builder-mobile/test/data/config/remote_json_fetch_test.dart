@@ -12,7 +12,8 @@ class _StreamClient extends http.BaseClient {
   final Future<http.StreamedResponse> Function(http.BaseRequest request) _send;
 
   @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) => _send(request);
+  Future<http.StreamedResponse> send(http.BaseRequest request) =>
+      _send(request);
 }
 
 http.StreamedResponse _streamed({
@@ -56,10 +57,7 @@ void main() {
 
   test('rejects root list', () async {
     final client = _StreamClient(
-      (_) async => _streamed(
-        statusCode: 200,
-        chunks: [utf8.encode('[1,2]')],
-      ),
+      (_) async => _streamed(statusCode: 200, chunks: [utf8.encode('[1,2]')]),
     );
     expect(
       () => fetchRemoteJsonMap(
@@ -128,10 +126,8 @@ void main() {
 
   test('rejects invalid JSON', () async {
     final client = _StreamClient(
-      (_) async => _streamed(
-        statusCode: 200,
-        chunks: [utf8.encode('{not-json')],
-      ),
+      (_) async =>
+          _streamed(statusCode: 200, chunks: [utf8.encode('{not-json')]),
     );
     await expectLater(
       fetchRemoteJsonMap(
@@ -193,7 +189,11 @@ void main() {
         ),
         throwsA(
           isA<RemoteJsonFetchException>()
-              .having((e) => e.failure, 'failure', RemoteJsonFailureKind.httpStatus)
+              .having(
+                (e) => e.failure,
+                'failure',
+                RemoteJsonFailureKind.httpStatus,
+              )
               .having((e) => e.statusCode, 'status', code),
         ),
       );
@@ -280,16 +280,14 @@ void main() {
 
   test('multiple chunks exactly maxBytes succeeds', () async {
     // {"k":""} is 8 bytes; pad value to reach exactly 32.
-    final payload = '{"k":"${'a' * 22}"}'; // 8+22=30? {"k":" + 22 + "} = 6+22+2=30
+    final payload =
+        '{"k":"${'a' * 22}"}'; // 8+22=30? {"k":" + 22 + "} = 6+22+2=30
     expect(utf8.encode(payload).length, lessThanOrEqualTo(maxBytes));
     final bytes = utf8.encode(payload);
     final client = _StreamClient(
       (_) async => _streamed(
         statusCode: 200,
-        chunks: [
-          bytes.sublist(0, 10),
-          bytes.sublist(10),
-        ],
+        chunks: [bytes.sublist(0, 10), bytes.sublist(10)],
       ),
     );
     final map = await fetchRemoteJsonMap(
@@ -307,10 +305,7 @@ void main() {
     final client = _StreamClient(
       (_) async => _streamed(
         statusCode: 200,
-        chunks: [
-          bytes.sublist(0, 10),
-          bytes.sublist(10),
-        ],
+        chunks: [bytes.sublist(0, 10), bytes.sublist(10)],
       ),
     );
     await expectLater(

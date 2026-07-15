@@ -44,10 +44,9 @@ Future<int> preloadMasterIconsForRef(
       detail: '準備中',
     ),
   );
-  return IconPreloadService(db).preloadMasterIcons(
-    onlyMissing: onlyMissing,
-    onProgress: onProgress,
-  );
+  return IconPreloadService(
+    db,
+  ).preloadMasterIcons(onlyMissing: onlyMissing, onProgress: onProgress);
 }
 
 /// Remote score weights の欠落補完（失敗してもマスタ同期成功を覆さない）
@@ -55,8 +54,9 @@ Future<void> syncMissingScoreWeightsForRef(WidgetRef ref) async {
   final db = await ref.read(appDatabaseProvider.future);
   final weightRepo = ref.read(artifactScoreWeightRepositoryProvider);
   final characters = await db.getAllCharacters();
-  final missingWeightIds =
-      await weightRepo.syncMissingCharacterProfiles(characters);
+  final missingWeightIds = await weightRepo.syncMissingCharacterProfiles(
+    characters,
+  );
   if (missingWeightIds.isNotEmpty) {
     await db.insertSyncLog(
       'partial',

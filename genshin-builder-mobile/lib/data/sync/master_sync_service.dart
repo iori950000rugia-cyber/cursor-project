@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:math';
 
 import '../amber/amber_api.dart';
 import '../amber/amber_upgrade.dart';
 import '../config/level_exp_table_source.dart';
+import '../config/remote_json_fetch.dart';
 import '../db/app_database.dart';
 import '../models/sync_status.dart';
 
@@ -46,6 +48,20 @@ class SyncResult {
 
 typedef SyncProgressCallback = void Function(SyncProgress progress);
 
+enum MasterSyncWritePoint {
+  characters,
+  weapons,
+  materials,
+  expMaterials,
+  levelExpSegments,
+  characterUpgrades,
+  weaponUpgrades,
+  syncLog,
+}
+
+typedef MasterSyncWriteFaultHook =
+    FutureOr<void> Function(MasterSyncWritePoint point);
+
 /// マスターデータ同期（Web `sync.ts` + `sync-upgrade.ts` 相当）
 class MasterSyncService {
   MasterSyncService({
@@ -57,14 +73,18 @@ class MasterSyncService {
     this.fullUpgrade = false,
     this.refreshStaleUpgrades = true,
     this.staleUpgradeSampleSize = 15,
-  })  : _amber = amberApi,
-        _upgrade = upgradeApi ?? AmberUpgradeApi(),
-        _db = db,
-        _levelExpTableSource = levelExpTableSource ?? LevelExpTableSource();
+    this.overallTimeout = const Duration(minutes: 5),
+    MasterSyncWriteFaultHook? writeFaultHook,
+  }) : _amber = amberApi,
+       _upgrade = upgradeApi ?? AmberUpgradeApi(),
+       _db = db,
+       _writeFaultHook = writeFaultHook,
+       _levelExpTableSource = levelExpTableSource ?? LevelExpTableSource();
 
   final AmberApi _amber;
   final AmberUpgradeApi _upgrade;
   final AppDatabase _db;
+  final MasterSyncWriteFaultHook? _writeFaultHook;
   final LevelExpTableSource _levelExpTableSource;
   final bool syncUpgradeDetails;
   final bool fullUpgrade;
@@ -72,6 +92,8 @@ class MasterSyncService {
   /// 通常同期で既存突破を最大 N 件ランダム再取得して Amber 変更を取り込む。
   final bool refreshStaleUpgrades;
   final int staleUpgradeSampleSize;
+  final Duration overallTimeout;
+  bool _cancelled = false;
 
   static const _expMaterialCount = 6;
   static const _levelExpSegmentCount = 32;
@@ -81,6 +103,21 @@ class MasterSyncService {
   }
 
   Future<SyncResult> syncMasterData({SyncProgressCallback? onProgress}) async {
+    _cancelled = false;
+    final pending = _syncMasterData(onProgress: onProgress);
+    try {
+      return await pending.timeout(overallTimeout);
+    } on TimeoutException {
+      _cancelled = true;
+      _upgrade.dispose();
+      unawaited(
+        pending.then<void>((_) {}, onError: (Object _, StackTrace __) {}),
+      );
+      rethrow;
+    }
+  }
+
+  Future<SyncResult> _syncMasterData({SyncProgressCallback? onProgress}) async {
     final result = SyncResult(provider: AmberApi.name);
 
     _report(
@@ -90,38 +127,47 @@ class MasterSyncService {
 
     try {
       final characters = await _amber.fetchCharacters();
-      await _db.upsertCharactersBatch(characters);
+      await _writeAtomically(
+        MasterSyncWritePoint.characters,
+        () => _db.upsertCharactersBatch(characters),
+      );
       result.characters = characters.length;
       _report(
         onProgress,
         const SyncProgress(phase: SyncPhase.master, current: 1, total: 3),
       );
     } catch (e) {
-      result.errors.add('characters: $e');
+      _recordPhaseError(result, 'characters', e);
     }
 
     try {
       final weapons = await _amber.fetchWeapons();
-      await _db.upsertWeaponsBatch(weapons);
+      await _writeAtomically(
+        MasterSyncWritePoint.weapons,
+        () => _db.upsertWeaponsBatch(weapons),
+      );
       result.weapons = weapons.length;
       _report(
         onProgress,
         const SyncProgress(phase: SyncPhase.master, current: 2, total: 3),
       );
     } catch (e) {
-      result.errors.add('weapons: $e');
+      _recordPhaseError(result, 'weapons', e);
     }
 
     try {
       final materials = await _amber.fetchMaterials();
-      await _db.upsertMaterialsBatch(materials);
+      await _writeAtomically(
+        MasterSyncWritePoint.materials,
+        () => _db.upsertMaterialsBatch(materials),
+      );
       result.materials = materials.length;
       _report(
         onProgress,
         const SyncProgress(phase: SyncPhase.master, current: 3, total: 3),
       );
     } catch (e) {
-      result.errors.add('materials: $e');
+      _recordPhaseError(result, 'materials', e);
     }
 
     if (syncUpgradeDetails) {
@@ -137,9 +183,42 @@ class MasterSyncService {
     );
 
     final status = result.hasErrors ? 'partial' : 'success';
-    await _db.insertSyncLog(status, result.toString());
+    await _writeAtomically(
+      MasterSyncWritePoint.syncLog,
+      () => _db.insertSyncLog(status, result.toString()),
+    );
 
     return result;
+  }
+
+  void _ensureActive() {
+    if (_cancelled) {
+      throw TimeoutException('Master sync timed out');
+    }
+  }
+
+  Future<void> _writeAtomically(
+    MasterSyncWritePoint point,
+    Future<void> Function() action,
+  ) {
+    return _db.transaction(() async {
+      _ensureActive();
+      await action();
+      await _writeFaultHook?.call(point);
+      _ensureActive();
+    });
+  }
+
+  void _recordPhaseError(SyncResult result, String phase, Object error) {
+    if (_cancelled || error is TimeoutException) {
+      throw TimeoutException('Master sync timed out');
+    }
+    final code = switch (error) {
+      RemoteJsonFetchException failure => failure.reasonCode,
+      FormatException _ => 'invalidData',
+      _ => 'unavailable',
+    };
+    result.errors.add('$phase:$code');
   }
 
   Future<void> _syncExpMaterials(
@@ -167,13 +246,15 @@ class MasterSyncService {
       }
 
       final mats = await _upgrade.fetchLevelUpMaterials();
-      for (final mat in mats) {
-        await _db.updateMaterialExp(
-          materialId: mat.materialId,
-          expValue: mat.exp,
-          expTarget: mat.targetType,
-        );
-      }
+      await _writeAtomically(MasterSyncWritePoint.expMaterials, () async {
+        for (final mat in mats) {
+          await _db.updateMaterialExp(
+            materialId: mat.materialId,
+            expValue: mat.exp,
+            expTarget: mat.targetType,
+          );
+        }
+      });
       result.expMaterials = mats.length;
       _report(
         onProgress,
@@ -185,7 +266,7 @@ class MasterSyncService {
         ),
       );
     } catch (e) {
-      result.errors.add('expMaterials: $e');
+      _recordPhaseError(result, 'expMaterials', e);
     }
   }
 
@@ -214,7 +295,10 @@ class MasterSyncService {
       }
 
       final segments = await _levelExpTableSource.loadSegments();
-      await _db.upsertLevelExpSegments(segments);
+      await _writeAtomically(
+        MasterSyncWritePoint.levelExpSegments,
+        () => _db.upsertLevelExpSegments(segments),
+      );
       result.levelExpSegments = segments.length;
       _report(
         onProgress,
@@ -226,7 +310,7 @@ class MasterSyncService {
         ),
       );
     } catch (e) {
-      result.errors.add('levelExpSegments: $e');
+      _recordPhaseError(result, 'levelExpSegments', e);
     }
   }
 
@@ -247,9 +331,8 @@ class MasterSyncService {
 
     if (refreshStaleUpgrades) {
       final hashed = allIds
-          .where((id) => (hashes[id] ?? '').isNotEmpty)
-          .toList(growable: true)
-        ..shuffle(Random());
+        .where((id) => (hashes[id] ?? '').isNotEmpty)
+        .toList(growable: true)..shuffle(Random());
       final sample = hashed.take(staleUpgradeSampleSize);
       target.addAll(sample);
     }
@@ -264,7 +347,9 @@ class MasterSyncService {
     try {
       final allCharacters = await _db.getAllCharacters();
       final hashes =
-          fullUpgrade ? <String, String>{} : await _db.getCharacterUpgradeHashes();
+          fullUpgrade
+              ? <String, String>{}
+              : await _db.getCharacterUpgradeHashes();
       final allIds = allCharacters.map((c) => c.id).toList(growable: false);
       final targetIds = _selectUpgradeTargetIds(allIds: allIds, hashes: hashes);
 
@@ -303,18 +388,20 @@ class MasterSyncService {
         },
       );
 
-      for (final upgrade in upgrades) {
-        await _db.upsertCharacterUpgrade(
-          characterId: upgrade.characterId,
-          promotes: upgrade.promotes,
-          talents: upgrade.talents,
-        );
-      }
+      await _writeAtomically(MasterSyncWritePoint.characterUpgrades, () async {
+        for (final upgrade in upgrades) {
+          await _db.upsertCharacterUpgrade(
+            characterId: upgrade.characterId,
+            promotes: upgrade.promotes,
+            talents: upgrade.talents,
+          );
+        }
+      });
 
       result.characterUpgrades =
           (await _db.getSyncedCharacterUpgradeIds()).length;
     } catch (e) {
-      result.errors.add('characterUpgrades: $e');
+      _recordPhaseError(result, 'characterUpgrades', e);
     }
   }
 
@@ -364,17 +451,19 @@ class MasterSyncService {
         },
       );
 
-      for (final upgrade in upgrades) {
-        await _db.upsertWeaponUpgrade(
-          weaponId: upgrade.weaponId,
-          promotes: upgrade.promotes,
-          levelUpItemIds: upgrade.levelUpItemIds,
-        );
-      }
+      await _writeAtomically(MasterSyncWritePoint.weaponUpgrades, () async {
+        for (final upgrade in upgrades) {
+          await _db.upsertWeaponUpgrade(
+            weaponId: upgrade.weaponId,
+            promotes: upgrade.promotes,
+            levelUpItemIds: upgrade.levelUpItemIds,
+          );
+        }
+      });
 
       result.weaponUpgrades = (await _db.getSyncedWeaponUpgradeIds()).length;
     } catch (e) {
-      result.errors.add('weaponUpgrades: $e');
+      _recordPhaseError(result, 'weaponUpgrades', e);
     }
   }
 }
