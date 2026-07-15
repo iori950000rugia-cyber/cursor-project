@@ -38,7 +38,10 @@ type LeaseHeartbeatOptions = {
 export async function runSyncExclusive(
   fullUpgrade: boolean,
   runner: SyncRunner = (options) =>
-    syncMasterData({ fullUpgrade: options.fullUpgrade }),
+    syncMasterData({
+      fullUpgrade: options.fullUpgrade,
+      signal: options.signal,
+    }),
   heartbeat: LeaseHeartbeatOptions = {},
 ): Promise<SyncResult> {
   if (activeSync) {

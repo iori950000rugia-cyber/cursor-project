@@ -19,6 +19,13 @@ export class SyncLeaseOwnershipLostError extends Error {
   }
 }
 
+/** Cooperative stop for sync phases. Does not expose abort reasons or tokens. */
+export function throwIfSyncAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw new SyncLeaseOwnershipLostError();
+  }
+}
+
 type SyncLeaseDb = Pick<PrismaClient, "$transaction" | "syncLease">;
 
 export async function tryAcquireSyncLease(
