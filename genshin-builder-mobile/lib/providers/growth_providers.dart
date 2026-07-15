@@ -145,8 +145,6 @@ final dailyPlanProvider = FutureProvider<DailyPlan>((ref) async {
 
 final characterDiagnosisProvider =
     FutureProvider.family<InvestmentDiagnosis, String>((ref, id) async {
-  final flags = await ref.watch(featureFlagsProvider.future);
-  if (!flags.enableInvestmentDiagnosis) return InvestmentDiagnosis(characterId: id);
   final snapshot = await ref.watch(accountSnapshotProvider.future);
   return const DiagnoseCharacterInvestmentUseCase()(
     snapshot: snapshot, characterId: id, generatedAt: DateTime.now(),

@@ -451,94 +451,119 @@ class _DiagnosisCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final flagsAsync = ref.watch(featureFlagsProvider);
-    return flagsAsync.maybeWhen(
-      data: (flags) => flags.enableInvestmentDiagnosis
-          ? _DiagnosisContent(characterId: characterId)
-          : const SizedBox.shrink(),
-      orElse: () => const SizedBox.shrink(),
-    );
-  }
-}
-
-class _DiagnosisContent extends ConsumerWidget {
-  const _DiagnosisContent({required this.characterId});
-  final String characterId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
     final diagAsync = ref.watch(characterDiagnosisProvider(characterId));
     final theme = Theme.of(context);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: diagAsync.when(
-        loading: () => const SizedBox.shrink(),
-        error: (_, __) => const SizedBox.shrink(),
-        data: (diag) {
-          if (diag.topFindings.isEmpty) return const SizedBox.shrink();
-          return Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('\u80b2\u6210\u8a3a\u65ad', style: theme.textTheme.titleSmall),
-                  const SizedBox(height: 6),
-                  ...diag.topFindings.map((f) => Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              f.severity == DiagnosisSeverity.warning
-                                  ? Icons.warning_amber
-                                  : Icons.info_outline,
-                              size: 18,
-                              color: f.severity == DiagnosisSeverity.warning
-                                  ? Colors.orange
-                                  : theme.colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(f.title, style: theme.textTheme.bodyMedium),
-                                  if (f.explanation.isNotEmpty)
-                                    Text(f.explanation, style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    )),
-                                  if (f.recommendation != null && f.recommendation!.isNotEmpty)
-                                    Text(f.recommendation!,
-                                        style: theme.textTheme.labelSmall?.copyWith(
-                                          color: theme.colorScheme.primary,
-                                        )),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      )),
-                  Text(
-                    '\u4fe1\u983c\u5ea6: ${_confidenceLabel(diag.topFindings.firstOrNull?.confidence ?? RecommendationConfidence.unknown)}',
-                    style: theme.textTheme.labelSmall,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('育成診断', style: theme.textTheme.titleSmall),
+              const SizedBox(height: 6),
+              diagAsync.when(
+                loading: () => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: LinearProgressIndicator(minHeight: 2),
+                ),
+                error: (_, __) => Text(
+                  '診断を取得できませんでした',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
-                ],
+                ),
+                data: (diag) {
+                  final findings = diag.topFindings;
+                  if (findings.isEmpty) {
+                    return Text(
+                      '特に指摘はありません',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    );
+                  }
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ...findings.map(
+                        (f) => Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                f.severity == DiagnosisSeverity.warning ||
+                                        f.severity == DiagnosisSeverity.critical
+                                    ? Icons.warning_amber
+                                    : Icons.info_outline,
+                                size: 18,
+                                color: f.severity == DiagnosisSeverity.warning ||
+                                        f.severity == DiagnosisSeverity.critical
+                                    ? Colors.orange
+                                    : theme.colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      f.title,
+                                      style: theme.textTheme.bodyMedium,
+                                    ),
+                                    if (f.explanation.isNotEmpty)
+                                      Text(
+                                        f.explanation,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                          color: theme
+                                              .colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    if (f.recommendation != null &&
+                                        f.recommendation!.isNotEmpty)
+                                      Text(
+                                        f.recommendation!,
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                          color: theme.colorScheme.primary,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '信頼度: ${_confidenceLabel(findings.first.confidence)}',
+                        style: theme.textTheme.labelSmall,
+                      ),
+                    ],
+                  );
+                },
               ),
-            ),
-          );
-        },
+            ],
+          ),
+        ),
       ),
     );
   }
 
   String _confidenceLabel(RecommendationConfidence c) {
     switch (c) {
-      case RecommendationConfidence.high: return '\u9ad8';
-      case RecommendationConfidence.medium: return '\u4e2d';
-      case RecommendationConfidence.low: return '\u4f4e';
-      case RecommendationConfidence.unknown: return '\u4e0d\u660e';
+      case RecommendationConfidence.high:
+        return '高';
+      case RecommendationConfidence.medium:
+        return '中';
+      case RecommendationConfidence.low:
+        return '低';
+      case RecommendationConfidence.unknown:
+        return '不明';
     }
   }
 }
