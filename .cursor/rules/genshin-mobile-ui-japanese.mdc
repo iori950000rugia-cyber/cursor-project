@@ -1,0 +1,43 @@
+---
+description: モバイルUI・ユーザー向け文言は日本語。英語残存を毎回確認して直す
+alwaysApply: true
+---
+
+# モバイル UI は日本語（英語残存チェック）
+
+`genshin-builder-mobile` の**ユーザー向け文言**は日本語にする。
+
+## いつ確認するか
+
+次の作業のたびに、変更箇所と周辺の表示文言を確認する:
+
+- 画面・ウィジェット・ダイアログの追加／変更
+- UseCase / domain が UI に出す `title` / `reasons` / `explanation` / `recommendation` / `message` / `name` などの文字列
+- 設定・診断・プラン・同期結果など、アプリ内にそのまま出るテキスト
+
+英語のユーザー向け文言があれば**その場で日本語に直す**（後回しにしない）。
+
+## 対象外（英語のままでよい）
+
+- アプリ名・サービス固有名（`Genshin Builder`、`HoYoLAB` など）
+- コード識別子・ログ用キー・API フィールド名・テストの説明文（`test('...')`）
+- 開発者向けコメント／ドキュメント（必要なら日英どちらでも可）
+
+## 良い例 / 悪い例
+
+```dart
+// ❌ BAD — 画面に出る英語
+name: 'Character Levels',
+reasons: ['No owned characters'],
+
+// ✅ GOOD
+name: 'キャラレベル',
+reasons: ['所持キャラがありません'],
+```
+
+## 確認の目安
+
+変更後、次をざっと洗う:
+
+- `lib/features/**` の `Text(` / `title:` / `label:` / `SnackBar`
+- `lib/application/**` のユーザー向け `reasons` / `title` / `explanation` / `recommendation` / `message`

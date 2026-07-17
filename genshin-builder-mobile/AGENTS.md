@@ -45,6 +45,10 @@
    - リリース前・HoYoLAB/秘密情報変更時は Skill `genshin-security-checklist`（`.cursor/skills/genshin-security-checklist/`）を使う
    - **自動読込**: `.cursor/rules/genshin-security-checklist.mdc`（alwaysApply）。読む直前に「genshin-security-checklist を読みます」と宣言する
    - 外部 800+ 攻撃系スキルは取り込まない。防御チェックのみ
+11. **ユーザー向け文言は日本語（厳守）**
+   - 画面・診断・プラン等に出る英語があればその場で日本語化する
+   - 固有名詞（`Genshin Builder` / `HoYoLAB` 等）は例外
+   - Cursor ルール: `../.cursor/rules/genshin-mobile-ui-japanese.mdc`（alwaysApply）
 
 ## ディレクトリ
 
