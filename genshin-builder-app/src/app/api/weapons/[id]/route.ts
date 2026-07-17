@@ -11,6 +11,9 @@ import { NextResponse } from "next/server";
 import { fetchWeaponDetail } from "@/lib/api/amber-details";
 import { mergePromotesWithApiStats } from "@/lib/api/merge-promotes";
 import { getWeaponUpgrade } from "@/lib/repository/upgrade-data";
+import { isKnownWeapon } from "@/lib/repository/weapons";
+
+const PROJECT_AMBER_WEAPON_ID = /^\d{5,10}$/;
 
 export async function GET(
   _request: Request,
@@ -18,6 +21,19 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    if (!PROJECT_AMBER_WEAPON_ID.test(id)) {
+      return NextResponse.json(
+        { message: "武器IDの形式が不正です。" },
+        { status: 400 },
+      );
+    }
+    if (!(await isKnownWeapon(id))) {
+      return NextResponse.json(
+        { message: "武器情報が見つかりません。" },
+        { status: 404 },
+      );
+    }
+
     const [detail, upgrade] = await Promise.all([
       fetchWeaponDetail(id),
       getWeaponUpgrade(id),
@@ -36,8 +52,8 @@ export async function GET(
         detail.promotes ?? [],
       ),
     });
-  } catch (error) {
-    console.error("武器詳細の取得に失敗しました:", error);
+  } catch {
+    console.error("武器詳細の取得に失敗しました。");
     return NextResponse.json(
       { message: "武器情報の取得に失敗しました。時間をおいて再度お試しください。" },
       { status: 500 },
