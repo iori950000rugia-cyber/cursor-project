@@ -14,11 +14,12 @@ class MasterContentProbe {
   Future<MasterContentProbeResult> check() async {
     try {
       final remote = await _amber.fetchMasterListCounts();
-      final localChars = (await _db.getAllCharacters()).length;
-      final localWeapons = (await _db.getAllWeapons()).length;
-      final localMaterials = (await _db.getAllMaterials()).length;
-      final syncedCharUp = (await _db.getSyncedCharacterUpgradeIds()).length;
-      final syncedWpnUp = (await _db.getSyncedWeaponUpgradeIds()).length;
+      final local = await _db.getMasterContentCounts();
+      final localChars = local.characters;
+      final localWeapons = local.weapons;
+      final localMaterials = local.materials;
+      final syncedCharUp = local.characterUpgrades;
+      final syncedWpnUp = local.weaponUpgrades;
 
       final reasons = <String>[];
       if (remote.characters > localChars) {
