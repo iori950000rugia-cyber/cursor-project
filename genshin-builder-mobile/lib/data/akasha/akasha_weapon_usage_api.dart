@@ -1,7 +1,6 @@
-import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 
+import '../config/remote_json_fetch.dart';
 import 'akasha_weapon_usage.dart';
 
 /// Akasha System（https://akasha.cv）の公開ビルド API クライアント
@@ -37,26 +36,14 @@ class AkashaWeaponUsageApi {
         'filter': '[characterId]$characterId',
       },
     );
-    final response = await _client
-        .get(
-          uri,
-          headers: {
-            'User-Agent': _userAgent,
-            'Accept': 'application/json',
-          },
-        )
-        .timeout(timeout);
-
-    if (response.statusCode != 200) {
-      throw Exception(
-        'akasha builds error: ${response.statusCode}',
-      );
-    }
-
-    final decoded = jsonDecode(response.body);
-    if (decoded is! Map<String, dynamic>) {
-      throw Exception('akasha builds: unexpected body');
-    }
+    final decoded = await fetchRemoteJsonMap(
+      client: _client,
+      url: uri.toString(),
+      kind: 'akasha_builds',
+      timeout: timeout,
+      maxBytes: kRemoteJsonMaxBytesAkashaBuilds,
+      headers: const {'User-Agent': _userAgent, 'Accept': 'application/json'},
+    );
     final message = decoded['message'];
     if (message is String && message.contains('I want')) {
       throw Exception('akasha builds: invalid request');

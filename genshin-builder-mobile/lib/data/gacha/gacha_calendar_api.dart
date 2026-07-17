@@ -1,7 +1,6 @@
-import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 
+import '../config/remote_json_fetch.dart';
 import '../../domain/gacha/calendar_event.dart';
 import '../../domain/gacha/gacha_banner.dart';
 
@@ -46,11 +45,13 @@ class GachaCalendarApi {
     }
 
     final uri = Uri.parse(baseUrl).replace(queryParameters: {'lang': lang});
-    final response = await _client.get(uri).timeout(timeout);
-    if (response.statusCode != 200) {
-      throw Exception('gacha calendar error: ${response.statusCode}');
-    }
-    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    final json = await fetchRemoteJsonMap(
+      client: _client,
+      url: uri.toString(),
+      kind: 'gacha_calendar',
+      timeout: timeout,
+      maxBytes: kRemoteJsonMaxBytesGachaCalendar,
+    );
     final bannersRaw = json['banners'] as List<dynamic>? ?? const [];
     final eventsRaw = json['events'] as List<dynamic>? ?? const [];
     final snap = GenshinCalendarSnapshot(
@@ -104,11 +105,12 @@ CalendarEvent parseCalendarEvent(Map<String, dynamic> json) {
       for (final r in json['rewards'] as List<dynamic>? ?? const [])
         if (r is Map<String, dynamic>) parseCalendarEventReward(r),
     ],
-    specialReward: json['special_reward'] is Map<String, dynamic>
-        ? parseCalendarEventReward(
-            json['special_reward'] as Map<String, dynamic>,
-          )
-        : null,
+    specialReward:
+        json['special_reward'] is Map<String, dynamic>
+            ? parseCalendarEventReward(
+              json['special_reward'] as Map<String, dynamic>,
+            )
+            : null,
   );
 }
 
@@ -179,9 +181,7 @@ GachaBanner parseCalendarBanner(Map<String, dynamic> json) {
 
 GachaBannerType inferBannerTypeFromName(String name) {
   final n = name.toLowerCase();
-  if (n.contains('集録') ||
-      n.contains('追憶') ||
-      n.contains('chronicled')) {
+  if (n.contains('集録') || n.contains('追憶') || n.contains('chronicled')) {
     return GachaBannerType.chronicled;
   }
   if (n.contains('武器') || n.contains('weapon') || n.contains('神鋳')) {
