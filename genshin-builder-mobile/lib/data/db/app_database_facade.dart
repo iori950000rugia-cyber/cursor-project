@@ -61,6 +61,23 @@ class AppDatabase {
   Future<List<MasterMaterial>> getAllMaterials() =>
       _inner.characterDao.getAllMaterials();
 
+  Future<
+    ({
+      int characters,
+      int weapons,
+      int materials,
+      int characterUpgrades,
+      int weaponUpgrades,
+    })
+  >
+  getMasterContentCounts() async => (
+    characters: await _inner.characterDao.countCharacters(),
+    weapons: await _inner.characterDao.countWeapons(),
+    materials: await _inner.characterDao.countMaterials(),
+    characterUpgrades: await _inner.characterDao.countCharacterUpgrades(),
+    weaponUpgrades: await _inner.characterDao.countWeaponUpgrades(),
+  );
+
   Future<MasterMaterial?> getMaterial(String id) =>
       _inner.characterDao.getMaterial(id);
 
@@ -195,19 +212,15 @@ class AppDatabase {
   Future<DateTime?> getLastSyncTime() => _inner.progressDao.getLastSyncTime();
 
   Future<SyncStatus> getSyncStatus() async {
-    final characters = await _inner.characterDao.getAllCharacters();
-    final weapons = await _inner.characterDao.getAllWeapons();
-    final materials = await _inner.characterDao.getAllMaterials();
-    final charUp = await _inner.characterDao.getSyncedCharacterUpgradeIds();
-    final wpnUp = await _inner.characterDao.getSyncedWeaponUpgradeIds();
+    final counts = await getMasterContentCounts();
     final levelExp = await _inner.characterDao.countLevelExpSegments();
     final lastSync = await _inner.progressDao.getLastSyncTime();
     return SyncStatus(
-      characters: characters.length,
-      weapons: weapons.length,
-      materials: materials.length,
-      characterUpgrades: charUp.length,
-      weaponUpgrades: wpnUp.length,
+      characters: counts.characters,
+      weapons: counts.weapons,
+      materials: counts.materials,
+      characterUpgrades: counts.characterUpgrades,
+      weaponUpgrades: counts.weaponUpgrades,
       levelExpSegments: levelExp,
       lastSyncedAt: lastSync,
     );

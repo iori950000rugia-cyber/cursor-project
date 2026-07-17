@@ -11,6 +11,15 @@ export interface WeaponOption {
   iconUrl: string;
 }
 
+/** 公開APIの境界で、同期済みマスターに存在する武器か確認する。 */
+export async function isKnownWeapon(id: string): Promise<boolean> {
+  const weapon = await prisma.weapon.findUnique({
+    where: { id },
+    select: { id: true },
+  });
+  return weapon !== null;
+}
+
 /**
  * 指定した武器種の武器一覧を取得する（育成フォームの選択肢用）。
  * レアリティの高い順・名前順で返す。

@@ -2,50 +2,62 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "ley_line_overflow_events.schema.json",
   "type": "object",
+  "additionalProperties": false,
   "required": ["version", "defaults"],
   "properties": {
     "version": { "type": "integer", "minimum": 1 },
-    "description": { "type": "string" },
+    "description": { "type": "string", "maxLength": 1024 },
     "defaults": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["displayName", "dailyBonusLimit", "nameMatchers"],
       "properties": {
-        "displayName": { "type": "string", "minLength": 1 },
-        "eventType": { "type": "string" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "eventType": { "type": "string", "minLength": 1, "maxLength": 64 },
         "dailyBonusLimit": { "type": "integer", "minimum": 0 },
         "rewardMultiplier": { "type": "integer", "minimum": 2 },
         "condensedResinEligible": { "type": "boolean", "const": false },
         "eligibleLeyLineTypes": {
           "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
           "items": { "type": "string", "enum": ["exp", "mora", "leyLineExp", "leyLineMora"] }
         },
         "nameMatchers": {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "string", "minLength": 1 }
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 128 }
         }
       }
     },
     "events": {
       "type": "array",
+      "maxItems": 128,
       "items": {
         "type": "object",
+        "additionalProperties": false,
         "required": ["eventId", "startAt", "endAt"],
         "properties": {
-          "eventId": { "type": "string", "minLength": 1 },
-          "eventType": { "type": "string" },
-          "displayName": { "type": "string" },
+          "eventId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "eventType": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "displayName": { "type": "string", "minLength": 1, "maxLength": 128 },
           "enabled": { "type": "boolean" },
-          "startAt": { "type": "string" },
-          "endAt": { "type": "string" },
+          "startAt": { "type": "string", "format": "date-time" },
+          "endAt": { "type": "string", "format": "date-time" },
           "dailyBonusLimit": { "type": "integer", "minimum": 0 },
           "rewardMultiplier": { "type": "integer", "minimum": 2 },
           "eligibleLeyLineTypes": {
             "type": "array",
-            "items": { "type": "string" }
+            "minItems": 1,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": { "type": "string", "enum": ["exp", "mora", "leyLineExp", "leyLineMora"] }
           },
-          "source": { "type": "string" },
-          "updatedAt": { "type": "string" }
+          "source": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "updatedAt": { "type": "string", "format": "date-time" }
         }
       }
     }
