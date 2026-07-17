@@ -34,6 +34,9 @@ jobs:
       - name: Pub get
         run: flutter pub get
 
+      - name: Validate bundled config JSON
+        run: dart run tool/validate_config_json.dart
+
       - name: Generate code
         run: dart run build_runner build
 
