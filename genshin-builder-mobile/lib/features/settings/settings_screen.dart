@@ -12,6 +12,7 @@ import '../../providers/background_master_repair_provider.dart';
 import '../../providers/hoyolab_home_providers.dart';
 import '../../providers/hoyolab_reminder_providers.dart';
 import '../shared/shell_menu_button.dart';
+import 'legal_documents_section.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -405,6 +406,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 16),
+          const LegalDocumentsSection(),
           const SizedBox(height: 16),
           const ListTile(
             leading: Icon(Icons.warning_amber),
