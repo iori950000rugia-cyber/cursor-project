@@ -151,9 +151,43 @@ void main() {
       );
     });
 
+    for (final baseUrl in const [
+      'http://localhost:3000',
+      'http://127.0.0.1:3000/',
+      'http://10.0.2.2:3000/base',
+    ]) {
+      test('accepts the local development backend $baseUrl', () async {
+        late http.Request captured;
+        final api = BackendAbyssStatisticsApi(
+          baseUrl: baseUrl,
+          client: MockClient((request) async {
+            captured = request;
+            return http.Response(jsonEncode(_validEnvelope()), 200);
+          }),
+        );
+
+        await api.fetchLatest();
+
+        expect(captured.url.scheme, 'http');
+        expect(captured.url.path, '/api/abyss/statistics');
+      });
+    }
+
     test('rejects plain HTTP except for local development hosts', () async {
       final api = BackendAbyssStatisticsApi(
         baseUrl: 'http://builder.example',
+        client: MockClient((_) async => http.Response('{}', 200)),
+      );
+
+      await expectLater(
+        api.fetchLatest(),
+        _throwsFailure(AbyssStatisticsFailure.notConfigured),
+      );
+    });
+
+    test('rejects an invalid backend URL', () async {
+      final api = BackendAbyssStatisticsApi(
+        baseUrl: 'not a URL',
         client: MockClient((_) async => http.Response('{}', 200)),
       );
 

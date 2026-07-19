@@ -6,6 +6,14 @@
 
 ---
 
+## 2026-07-19 — Android release backend URL gate
+
+- **目的:** 署名Release AABへFlutter用Next.js backend originを安全に必須注入する
+- **決定事項:** `GENSHIN_BUILDER_API_BASE_URL`は単一のGitHub Secretから取得する。値をログへ出さず、空値、空白、不正URL、非HTTPS、userinfo、path/query/fragment、localhost、loopback、`10.0.2.2`をbuild前に拒否する。末尾の`/`は許容する
+- **変更ファイル（主要）:** mobile release／CI workflow、Flutter backend URL・workflow契約テスト、`.env.example`、Android release運用資料
+- **検証:** Web 155件、Flutter 588件、analyze 0 issue、lint、typecheck、Prisma validate/generate、Next.js production build、YAML構文、URL検証10ケースが成功
+- **未完了 / 次回:** GitHub Secret登録、branch protection、production migration、staging 4経路、release workflow、署名AAB実機確認、AZA.GG利用許可証跡は外部環境作業として未実施
+
 ## 2026-07-19 — AZA.GG 深境螺旋統計バックエンド
 
 - **目的:** Flutter に AZA.GG の深境螺旋キャラクター／編成統計を安全に提供する

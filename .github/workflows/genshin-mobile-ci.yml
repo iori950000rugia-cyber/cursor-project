@@ -6,11 +6,13 @@ on:
       - "genshin-builder-mobile/**"
       - "shared/domain-golden/**"
       - ".github/workflows/genshin-mobile-ci.yml"
+      - ".github/workflows/genshin-mobile-release-example.yml"
   pull_request:
     paths:
       - "genshin-builder-mobile/**"
       - "shared/domain-golden/**"
       - ".github/workflows/genshin-mobile-ci.yml"
+      - ".github/workflows/genshin-mobile-release-example.yml"
 
 jobs:
   analyze-and-test:
