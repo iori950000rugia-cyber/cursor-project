@@ -12,7 +12,7 @@ void main() {
   group('GrowthEvent composite cursor pagination', () {
     testWidgets('same observedAt events paginate correctly', (tester) async {
       final db = DriftAppDatabase(DatabaseConnection(
-        DatabaseConnection.fromExecutor(NativeDatabase.memory()),
+        DatabaseConnection(NativeDatabase.memory()),
       ));
       addTearDown(() async { try { await db.close(); } catch (_) {} });
 
@@ -69,7 +69,7 @@ void main() {
 
     testWidgets('empty history returns empty list', (tester) async {
       final db = DriftAppDatabase(DatabaseConnection(
-        DatabaseConnection.fromExecutor(NativeDatabase.memory()),
+        DatabaseConnection(NativeDatabase.memory()),
       ));
       addTearDown(() async { try { await db.close(); } catch (_) {} });
       final page = await db.growthDao.eventsGetByUser('local', limit: 50);
@@ -81,7 +81,7 @@ void main() {
   group('GrowthEvent source and dedup', () {
     testWidgets('events save with correct source', (tester) async {
       final db = DriftAppDatabase(DatabaseConnection(
-        DatabaseConnection.fromExecutor(NativeDatabase.memory()),
+        DatabaseConnection(NativeDatabase.memory()),
       ));
       addTearDown(() async { try { await db.close(); } catch (_) {} });
       await db.growthDao.eventsSaveAll([
@@ -102,7 +102,7 @@ void main() {
 
     testWidgets('duplicate dedupKey is ignored', (tester) async {
       final db = DriftAppDatabase(DatabaseConnection(
-        DatabaseConnection.fromExecutor(NativeDatabase.memory()),
+        DatabaseConnection(NativeDatabase.memory()),
       ));
       addTearDown(() async { try { await db.close(); } catch (_) {} });
       await db.growthDao.eventsSaveAll([
@@ -123,14 +123,14 @@ void main() {
   group('Transaction rollback', () {
     testWidgets('baseline produces no events', (tester) async {
       final db = DriftAppDatabase(DatabaseConnection(
-        DatabaseConnection.fromExecutor(NativeDatabase.memory()),
+        DatabaseConnection(NativeDatabase.memory()),
       ));
       addTearDown(() async { try { await db.close(); } catch (_) {} });
-      await db.characterDao.upsertCharacter(MasterCharacter(
+      await db.characterDao.upsertCharacter(const MasterCharacter(
         id: '10000002', name: 'Ayaka', element: 'cryo',
         weaponType: 'sword', rarity: 5, region: 'Inazuma', iconUrl: '',
       ));
-      await db.progressDao.upsertProgress(UserProgress(
+      await db.progressDao.upsertProgress(const UserProgress(
         id: 'p1', userId: 'local', characterId: '10000002', level: 80,
       ));
       expect((await db.growthDao.eventsGetByUser('local', limit: 50)), isEmpty);
@@ -139,19 +139,19 @@ void main() {
 
     testWidgets('transaction rolls back on error', (tester) async {
       final db = DriftAppDatabase(DatabaseConnection(
-        DatabaseConnection.fromExecutor(NativeDatabase.memory()),
+        DatabaseConnection(NativeDatabase.memory()),
       ));
       addTearDown(() async { try { await db.close(); } catch (_) {} });
-      await db.characterDao.upsertCharacter(MasterCharacter(
+      await db.characterDao.upsertCharacter(const MasterCharacter(
         id: '10000002', name: 'Ayaka', element: 'cryo',
         weaponType: 'sword', rarity: 5, region: 'Inazuma', iconUrl: '',
       ));
-      await db.progressDao.upsertProgress(UserProgress(
+      await db.progressDao.upsertProgress(const UserProgress(
         id: 'p1', userId: 'local', characterId: '10000002', level: 1,
       ));
       try {
         await db.transaction(() async {
-          await db.progressDao.upsertProgress(UserProgress(
+          await db.progressDao.upsertProgress(const UserProgress(
             id: 'p1', userId: 'local', characterId: '10000002', level: 90,
           ));
           await db.customStatement('INVALID_SQL');
@@ -164,15 +164,15 @@ void main() {
 
     testWidgets('progress + events saved in transaction', (tester) async {
       final db = DriftAppDatabase(DatabaseConnection(
-        DatabaseConnection.fromExecutor(NativeDatabase.memory()),
+        DatabaseConnection(NativeDatabase.memory()),
       ));
       addTearDown(() async { try { await db.close(); } catch (_) {} });
-      await db.characterDao.upsertCharacter(MasterCharacter(
+      await db.characterDao.upsertCharacter(const MasterCharacter(
         id: '10000002', name: 'Ayaka', element: 'cryo',
         weaponType: 'sword', rarity: 5, region: 'Inazuma', iconUrl: '',
       ));
       await db.transaction(() async {
-        await db.progressDao.upsertProgress(UserProgress(
+        await db.progressDao.upsertProgress(const UserProgress(
           id: 'p1', userId: 'local', characterId: '10000002', level: 90,
         ));
         await db.growthDao.eventsSaveAll([
@@ -210,7 +210,7 @@ void main() {
         currentResin: 120, maxResin: 200,
         status: SnapshotSupplementStatus.linked,
       );
-      // The model has no cookie/DS/header fields — compile-time guarantee.
+      // The model has no cookie/DS/header fields  Ecompile-time guarantee.
       expect(sup.toString(), isNotEmpty);
       // Verify no sensitive fields exist by checking only defined fields.
       expect(sup.currentResin, isNotNull);
@@ -232,13 +232,13 @@ void main() {
 
   group('Cache never calls network API', () {
     // The AccountSnapshotSupplement is a pure Dart data class.
-    // It has no network dependencies — no API client, no HTTP calls.
+    // It has no network dependencies  Eno API client, no HTTP calls.
     // The cachedDailyNoteProvider reads from HoyoLabHomeDiskCache (AppSettings DB table),
     // which is a read-only disk cache. It does NOT call HoyoLabApi.getDailyNote().
     // This is guaranteed by:
-    // 1. cachedDailyNoteProvider only calls cache.readDailyNote(uid) — no HTTP.
+    // 1. cachedDailyNoteProvider only calls cache.readDailyNote(uid)  Eno HTTP.
     // 2. buildSnapshotSupplement only reads cachedDailyNoteProvider.valueOrNull.
-    // 3. AccountSnapshotSupplement is pure Dart — no import of http or HoyoLabApi.
+    // 3. AccountSnapshotSupplement is pure Dart  Eno import of http or HoyoLabApi.
 
     test('AccountSnapshotSupplement has no network dependency', () {
       // Pure Dart model guarantee: no HTTP/API imports in this file.
@@ -252,7 +252,7 @@ void main() {
     });
 
     test('supplement is immutable and has no side effects', () {
-      final sup = AccountSnapshotSupplement(
+      const sup = AccountSnapshotSupplement(
         currentResin: 160, maxResin: 200,
         status: SnapshotSupplementStatus.linked,
       );
