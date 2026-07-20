@@ -169,6 +169,8 @@
 |-------|------|
 | `SyncLog` | 同期結果 JSON |
 | `ExternalApiCache` | 外部統計の最終成功スナップショット、取得時刻、失効時刻、版、サンプル数 |
+| `TeamSimulationJob` | 正規化済み戦闘入力の非同期Job状態。Cookie・UID・HoYoLAB本文は保存しない |
+| `TeamSimulationCache` | gcsim固定版・入力hash単位の最終正常結果。失敗値では上書きしない |
 
 ---
 
@@ -263,6 +265,16 @@ Flutter → GET /api/abyss/statistics
 | `/api/v2/static/weaponCurve` | 武器ステ | 24h + React cache |
 | `/api/v2/jp/reliquary` | 聖遺物セット | 24h + React cache |
 | `GET /api/abyss/statistics` | Flutter 向け深境螺旋統計 DTO | DB 6h TTL + stale fallback |
+| `POST /api/team-recommendations` | 正規化済み戦闘DTOから推薦Jobを作成 | 同一request hashを再利用 |
+| `GET /api/team-recommendations/jobs/{jobId}` | Job状態・推薦結果 | `no-store` |
+
+### 6. 編成推薦とgcsim
+
+FlutterはHoYoLAB情報を端末内で`SimulationBuildSnapshot`へ縮約し、Cookie、UID、アカウント情報、未加工レスポンスを送信しない。Next.jsは`TeamCandidateGenerator`でAZA.GG実績、共起、元素・役割ルールを統合し、最大20候補だけを評価する。
+
+`GcsimConfigGenerator`は数値IDの許可リストと信頼済み`RotationTemplateRepository`だけからConfigを生成する。クライアントConfig、command、pathはAPI検証で拒否する。`GcsimRunner`は固定チェックサムのバイナリを`spawn`の引数配列で起動し、専用一時ディレクトリ、削除、timeout、stdout/stderr/結果上限、同時実行上限、最小環境変数を適用する。実行層はinterfaceのため、専用worker/containerへ交換可能である。
+
+gcsim失敗時は期限切れを含む最終正常cache、AZA候補、ルール候補の順にフォールバックする。`GCSIM_ENABLED=false`でも既存AZA画面とルール推薦は動作する。詳細は`docs/GCSIM_INTEGRATION.md`と`docs/TEAM_RECOMMENDATION.md`を参照。
 
 ---
 
