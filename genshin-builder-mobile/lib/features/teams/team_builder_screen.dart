@@ -11,6 +11,7 @@ import '../../providers/app_providers.dart';
 import '../../providers/growth_providers.dart';
 import '../../core/errors/user_facing_error.dart';
 import '../shared/game_icon_image.dart';
+import 'team_recommendation_panel.dart';
 
 // ---------------------------------------------------------------------------
 // Team role
@@ -221,6 +222,10 @@ class _TeamBuilderScreenState extends ConsumerState<TeamBuilderScreen> {
   }
 
   Widget _buildFutureHint(ThemeData theme) {
+    final attackerId = _slots.first.characterId;
+    if (attackerId != null) {
+      return TeamRecommendationPanel(attackerId: attackerId);
+    }
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -230,7 +235,7 @@ class _TeamBuilderScreenState extends ConsumerState<TeamBuilderScreen> {
             Text('\u304a\u3059\u3059\u3081\u7de8\u6210', style: theme.textTheme.titleSmall),
             const SizedBox(height: 8),
             Text(
-              '\u304a\u3059\u3059\u3081\u7de8\u6210\u6a5f\u80fd\u306f\u4eca\u5f8c\u8ffd\u52a0\u4e88\u5b9a\u3067\u3059',
+              '1人目にアタッカーを選ぶと、育成状況に合わせたおすすめ編成を確認できます',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

@@ -2,6 +2,16 @@
 
 セッションごとの設計判断ログ。重要な決定のみ追記する。
 
+## 2026-07-20 — おすすめ編成とgcsim連携
+
+- `SimulationBuildSnapshot`はHoYoLAB Cookie/UID/未加工レスポンスを型に持たず、正規化済み戦闘値だけをNext.jsへ送る。
+- Game Record relicには安定setIdがないため名前から推測しない。空sets + `partial` / `artifactSets`で明示する。
+- 編成画面の1人目をアタッカーとしてJobを作成し、2秒間隔・最大6分の有限polling、dispose/新規計算後の旧response無視、処理中の多重開始防止、retry、stale/kill-switch fallback、所持/半/敵数/評価方針を表示する。
+- 理論値注意文とgcsim (MIT) / AZA.GGクレジットは常時表示する。
+- 既存`domain_golden_test.dart`、`artifact_completion_test.dart`、`artifact_score_test.dart`と編成保存は変更しない。
+
+---
+
 ## 2026-07-19 — AZA.GG 深境螺旋統計画面
 
 - 状態: **実装・Flutter 3.44.5で静的解析完了、Flutter test は端末ポリシーで実行保留**
